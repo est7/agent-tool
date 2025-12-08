@@ -73,6 +73,9 @@ EOF
   if [[ -n "${BASE_BRANCH_NAME:-}" ]]; then
     BASE_BRANCH="${BASE_BRANCH_NAME}"
     echo "==> 使用显式指定基线分支: ${BASE_BRANCH}"
+  elif [[ -n "${DEFAULT_BASE_BRANCH:-}" ]]; then
+    BASE_BRANCH="${DEFAULT_BASE_BRANCH}"
+    echo "==> 使用配置文件中的默认基线分支: ${BASE_BRANCH}"
   else
     local CURRENT_BRANCH
     CURRENT_BRANCH="$(git -C "${REPO_ROOT}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "HEAD")"
@@ -233,17 +236,8 @@ cleanup_agent_repo() {
     echo "提示: 目录不存在，无需清理。"
     exit 0
   fi
-
-  read -r -p "确认删除该目录及其所有内容? [y/N] " ans
-  case "${ans}" in
-  y | Y | yes | YES)
-    rm -rf "${AGENT_DIR}"
-    echo "🧹 已删除: ${AGENT_DIR}"
-    ;;
-  *)
-    echo "取消删除。"
-    ;;
-  esac
+  rm -rf "${AGENT_DIR}"
+  echo "🧹 已删除 Agent 仓库目录: ${AGENT_DIR}"
 }
 
 list_agents() {
@@ -322,4 +316,3 @@ status_agents() {
   done
   shopt -u nullglob
 }
-

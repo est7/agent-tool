@@ -7,14 +7,29 @@ set -euo pipefail
 #
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+# 模块路径：支持新结构（cfg/ws/build/doctor/dev/test/...）
+CFG_DIR="${CFG_DIR:-${SCRIPT_DIR}/cfg}"
+WS_DIR="${WS_DIR:-${SCRIPT_DIR}/ws}"
+BUILD_DIR="${BUILD_DIR:-${SCRIPT_DIR}/build}"
+DOCTOR_DIR="${DOCTOR_DIR:-${SCRIPT_DIR}/doctor}"
+DEV_DIR="${DEV_DIR:-${SCRIPT_DIR}/dev}"
+TEST_DIR="${TEST_DIR:-${SCRIPT_DIR}/test}"
+
+# 全局配置文件（可通过 AGENT_TOOL_CONFIG 覆盖）
+AGENT_TOOL_CONFIG="${AGENT_TOOL_CONFIG:-${HOME}/.agent-tool/config}"
+if [[ -f "${AGENT_TOOL_CONFIG}" ]]; then
+  # shellcheck source=/dev/null
+  source "${AGENT_TOOL_CONFIG}"
+fi
 
 usage() {
   cat <<EOF
 用法:
-  $0 create  [--base-branch <branch>] <type> <scope>   # 创建 Agent 仓库并初始化
-  $0 cleanup <type> <scope>                            # 删除对应的 Agent 仓库目录
-  $0 list                                              # 列出所有已存在的 Agent 仓库
-  $0 status                                            # 显示所有 Agent 仓库的 git 状态简要信息
+  $0 help [group]                                       # 显示整体或某个分组的帮助
+  $0 cfg <subcommand> [args]                           # 统一配置/软链/MCP 工具
+  $0 ws  <subcommand> [...]                            # workspace 相关命令的分组入口
+  $0 dev <subcommand> [...]                            # 预留: 开发期流程/规范/模板
+  $0 test <subcommand> [...]                           # 预留: agent-tool 自身测试命令
   $0 build <platform> [--run] [-- <args...>]           # 在当前仓库中执行内置平台构建逻辑
   $0 run   <platform> [-- <args...>]                   # 便捷运行: 等价于 build <platform> --run
   $0 doctor <platform>                                 # 检查当前仓库针对平台的构建环境
@@ -30,12 +45,25 @@ usage() {
   <platform> 平台: android | ios | web
   --run      对于支持的平台, 表示构建完成后尝试安装/运行
 
+cfg 子命令:
+  cfg init              # 初始化统一配置目录软链 (install_symlinks.sh -v)
+  cfg init-force        # 初始化并强制覆盖非软链路径 (--force)
+  cfg refresh           # 新增 commands/skills/hooks/agents 后刷新软链 (-U)
+  cfg selftest [--v]    # 自检配置目录及软链状态
+  cfg mcp [options]     # 在项目根生成 MCP 配置 (透传选项至 project_mcp_setup.sh)
+
+workspace 子命令（ws 前缀等价于旧的直接命令）:
+  ws create [--base-branch <branch>] <type> <scope>
+  ws cleanup --force <type> <scope>   # 危险: 删除 agent workspace 目录
+  ws list
+  ws status
+
 示例:
-  $0 create feat user-profile-header
-  $0 create --base-branch dev feat user-profile-header
-  $0 cleanup feat user-profile-header
-  $0 list
-  $0 status
+  $0 ws create feat user-profile-header
+  $0 ws create --base-branch dev feat user-profile-header
+  $0 ws cleanup --force feat user-profile-header
+  $0 ws list
+  $0 ws status
   $0 build android com.myapp Debug
   $0 build android --run com.myapp Debug
   $0 build ios MyAppScheme
@@ -46,11 +74,84 @@ usage() {
 EOF
 }
 
-# 加载按职责拆分的模块 (workspace + 平台构建)
-source "${SCRIPT_DIR}/agent-workspace.sh"
-source "${SCRIPT_DIR}/agent-android.sh"
-source "${SCRIPT_DIR}/agent-ios.sh"
-source "${SCRIPT_DIR}/agent-web.sh"
+help_command() {
+  local group="${1:-}"
+  case "${group}" in
+  "" | -h | --help)
+    usage
+    ;;
+  cfg)
+    cat <<EOF
+cfg 子命令:
+  cfg init              # 初始化统一配置目录软链 (install_symlinks.sh -v)
+  cfg init-force        # 初始化并强制覆盖非软链路径 (--force)
+  cfg refresh           # 新增 commands/skills/hooks/agents 后刷新软链 (-U)
+  cfg selftest [--v]    # 自检配置目录及软链状态
+  cfg mcp [options]     # 在项目根生成 MCP 配置 (透传选项至 project_mcp_setup.sh)
+EOF
+    ;;
+  ws)
+    cat <<EOF
+workspace 子命令 (仅通过 ws 分组使用):
+  ws create [--base-branch <branch>] <type> <scope>
+  ws cleanup --force <type> <scope>   # 危险: 删除 agent workspace 目录
+  ws list
+  ws status
+EOF
+    ;;
+  build)
+    cat <<EOF
+build 子命令:
+  build <platform> [--run] [-- <args...>]
+
+platform:
+  android   Android 工程, 使用 gradlew assemble/install + adb
+  ios       iOS 工程, 使用 tuist build/run
+  web       Web 工程, 使用 pnpm/yarn/npm build/dev
+EOF
+    ;;
+  doctor)
+    cat <<EOF
+doctor 子命令:
+  doctor <platform>
+
+platform:
+  android   检查 Android 构建所需依赖
+  ios       检查 iOS (Tuist) 构建所需依赖
+  web       检查 Web 构建所需依赖
+EOF
+    ;;
+  dev)
+    cat <<EOF
+dev 模块尚未实现，预留用于开发期流程/规范/模板。
+EOF
+    ;;
+  test)
+    cat <<EOF
+test 子命令:
+  test self   # 对 agent-tool 自身做最小语法检查 (bash -n)
+EOF
+    ;;
+  *)
+    agent_error "E_HELP_GROUP_UNKNOWN" "未知 help 分组: ${group}"
+    ;;
+  esac
+  exit 0
+}
+
+# 加载按职责拆分的模块
+# - cfg: 公共工具函数（错误输出等）
+# - ws: Agent workspace 管理 (create/cleanup/list/status)
+# - build: 各平台构建/运行逻辑
+# - doctor: 各平台环境自检逻辑
+# - dev: 预留开发期流程/规范/模板
+# - test: 预留 agent-tool 自身测试/验证逻辑
+source "${CFG_DIR}/index.sh"
+source "${WS_DIR}/index.sh"
+source "${BUILD_DIR}/index.sh"
+source "${DOCTOR_DIR}/index.sh"
+source "${DEV_DIR}/index.sh"
+source "${TEST_DIR}/index.sh"
 
 if [[ $# -lt 1 ]]; then
   usage
@@ -73,17 +174,146 @@ REPO_ROOT=""
 REPO_NAME=""
 PARENT_DIR=""
 BASE_BRANCH_NAME=""
+WS_GROUP=0
 
-# 计算仓库路径相关变量（所有命令都需要）
+# help 分组：`agent-tool help <group>`
+if [[ "${COMMAND}" == "help" ]]; then
+  shift
+  help_command "$@"
+fi
+
+# workspace 分组前缀：`agent-tool ws create ...` 等价于直接 `create ...`
+if [[ "${COMMAND}" == "ws" ]]; then
+  WS_GROUP=1
+  shift
+  if [[ $# -lt 1 ]]; then
+    usage
+    exit 1
+  fi
+  if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    help_command ws
+  fi
+  COMMAND="$1"
+fi
+
+if [[ "${WS_GROUP}" -eq 0 ]]; then
+  case "${COMMAND}" in
+  create | cleanup | list | status)
+    agent_error "E_DEPRECATED_TOPLEVEL" "顶层子命令 '${COMMAND}' 已废弃，请使用: $0 ws ${COMMAND} ..."
+    echo
+    echo "示例:"
+    echo "  $0 ws create [--base-branch <branch>] <type> <scope>"
+    echo "  $0 ws cleanup --force <type> <scope>"
+    echo "  $0 ws list"
+    echo "  $0 ws status"
+    exit 1
+    ;;
+  esac
+fi
+
+########################################
+# cfg 子命令：操作统一配置目录
+########################################
+
+run_cfg_script() {
+  local script="$1"
+  shift || true
+  local path="${CFG_DIR}/${script}"
+  if [[ ! -x "$path" ]]; then
+    agent_error "E_CFG_SCRIPT_NOT_FOUND" "找不到配置脚本: $path"
+    exit 1
+  fi
+  "$path" "$@"
+}
+
+cfg_command() {
+  shift # 去掉 "cfg"
+  local sub="${1:-}"
+
+  if [[ "${sub}" == "-h" || "${sub}" == "--help" ]]; then
+    help_command cfg
+  fi
+
+  if [[ -z "${sub}" ]]; then
+    agent_error "E_ARG_MISSING" "cfg 需要显式指定子命令。"
+    echo
+    echo "用法: $0 cfg <subcommand> [args]"
+    echo "可用子命令: init | init-force | refresh | selftest | mcp"
+    exit 1
+  fi
+
+  case "$sub" in
+  init)
+    run_cfg_script "install_symlinks.sh" -v
+    ;;
+  init-force)
+    run_cfg_script "install_symlinks.sh" -v --force
+    ;;
+  refresh)
+    run_cfg_script "install_symlinks.sh" -U
+    ;;
+  selftest)
+    shift || true
+    if [[ -x "${DOCTOR_DIR}/cfg_doctor.sh" ]]; then
+      "${DOCTOR_DIR}/cfg_doctor.sh" "$@"
+    else
+      agent_error "E_DOCTOR_SCRIPT_NOT_FOUND" "找不到 cfg_doctor.sh，检查 DOCTOR_DIR 是否正确: ${DOCTOR_DIR}"
+      exit 1
+    fi
+    ;;
+  mcp)
+    shift || true
+    run_cfg_script "project_mcp_setup.sh" "$@"
+    ;;
+  *)
+    agent_error "E_SUBCOMMAND_UNKNOWN" "未知 cfg 子命令: ${sub}"
+    echo "可用: init | init-force | refresh | selftest | mcp"
+    exit 1
+    ;;
+  esac
+  exit 0
+}
+
+# cfg / test 子命令不依赖当前目录是 git 仓库
+if [[ "${COMMAND}" == "cfg" ]]; then
+  cfg_command "$@"
+fi
+
+test_command() {
+  shift # 去掉 "test"
+  local sub="${1:-self}"
+
+  if [[ "${sub}" == "-h" || "${sub}" == "--help" ]]; then
+    help_command test
+  fi
+
+  case "${sub}" in
+  self)
+    agent_tool_test_self
+    ;;
+  *)
+    agent_error "E_SUBCOMMAND_UNKNOWN" "未知 test 子命令: ${sub}"
+    exit 1
+    ;;
+  esac
+  exit 0
+}
+
+if [[ "${COMMAND}" == "test" ]]; then
+  test_command "$@"
+fi
+
+# 计算仓库路径相关变量（仅 ws/build/run/doctor 需要）
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -z "${REPO_ROOT}" ]]; then
-  echo "错误: 当前目录不在一个 Git 仓库中，请在主仓内部执行此脚本。"
+  agent_error "E_NOT_GIT_REPO" "当前目录不在一个 Git 仓库中，请在主仓内部执行此脚本。"
   exit 1
 fi
 
 REPO_NAME="$(basename "${REPO_ROOT}")" # 例如 my-app
 PARENT_DIR="$(dirname "${REPO_ROOT}")" # 例如 ~/Projects
-AGENT_ROOT="${PARENT_DIR}/${REPO_NAME}-agents"
+AGENT_ROOT_DEFAULT="${PARENT_DIR}/${REPO_NAME}-agents"
+AGENT_ROOT="${AGENT_ROOT:-${AGENT_ROOT_DEFAULT}}"
 
 ########################################
 # 参数解析: create / cleanup
@@ -99,7 +329,7 @@ if [[ "${COMMAND}" == "create" ]]; then
   fi
 
   if [[ $# -lt 2 ]]; then
-    usage
+    agent_error "E_ARG_MISSING" "ws create 需要 <type> <scope>。"
     exit 1
   fi
 
@@ -108,8 +338,16 @@ if [[ "${COMMAND}" == "create" ]]; then
 
 elif [[ "${COMMAND}" == "cleanup" ]]; then
   shift # 去掉 cleanup
+
+  if [[ "${1:-}" != "--force" ]]; then
+    agent_error "E_FORCE_REQUIRED" "ws cleanup 为危险操作，请使用: $0 ws cleanup --force <type> <scope>"
+    exit 1
+  fi
+
+  shift # 去掉 --force
+
   if [[ $# -lt 2 ]]; then
-    usage
+    agent_error "E_ARG_MISSING" "ws cleanup 需要 <type> <scope>。"
     exit 1
   fi
 
@@ -120,64 +358,40 @@ elif [[ "${COMMAND}" == "build" ]]; then
   shift # 去掉 build
 
   if [[ $# -eq 0 ]]; then
-    # 尝试自动检测平台
-    platforms=()
-    if [[ -f "${REPO_ROOT}/gradlew" ]]; then
-      platforms+=("android")
-    fi
-    if [[ -f "${REPO_ROOT}/Project.swift" || -d "${REPO_ROOT}/Tuist" ]]; then
-      platforms+=("ios")
-    fi
-    if [[ -f "${REPO_ROOT}/package.json" ]]; then
-      platforms+=("web")
-    fi
-
-    if [[ ${#platforms[@]} -eq 1 ]]; then
-      BUILD_PLATFORM="${platforms[0]}"
-      echo "提示: 未显式指定平台, 自动检测为: ${BUILD_PLATFORM}"
-    elif [[ ${#platforms[@]} -eq 0 ]]; then
-      echo "错误: 未检测到已知平台结构。"
-      echo
-      echo "请显式指定平台, 用法:"
-      echo "  $0 build <platform> [--run] [-- <args...>]"
-      echo "platform: android | ios | web"
-      exit 1
-    else
-      echo "错误: 检测到多个可能的平台: ${platforms[*]}"
-      echo
-      echo "请显式指定平台, 用法:"
-      echo "  $0 build <platform> [--run] [-- <args...>]"
-      exit 1
-    fi
-  else
-    case "$1" in
-    android | ios | web)
-      BUILD_PLATFORM="$1"
-      shift
-      ;;
-    -h | --help)
-      echo "用法: $0 build <platform> [--run] [-- <args...>]"
-      echo
-      echo "platform:"
-      echo "  android   Android 工程, 使用 gradlew assemble/install + adb"
-      echo "  ios       iOS 工程, 使用 tuist build/run"
-      echo "  web       Web 工程, 使用 pnpm/yarn/npm build/dev"
-      echo
-      echo "示例:"
-      echo "  $0 build android com.myapp Debug"
-      echo "  $0 build android --run com.myapp Debug"
-      echo "  $0 build ios MyAppScheme"
-      echo "  $0 build ios --run MyAppScheme \"iPhone 16 Pro\""
-      echo "  $0 build web"
-      echo "  $0 build web --run"
-      exit 0
-      ;;
-    *)
-      echo "错误: 不支持的 platform='$1'，请使用: android | ios | web"
-      exit 1
-      ;;
-    esac
+    agent_error "E_ARG_MISSING" "build 需要显式指定平台。"
+    echo
+    echo "用法: $0 build <platform> [--run] [-- <args...>]"
+    echo "platform: android | ios | web"
+    exit 1
   fi
+
+  case "$1" in
+  android | ios | web)
+    BUILD_PLATFORM="$1"
+    shift
+    ;;
+  -h | --help)
+    echo "用法: $0 build <platform> [--run] [-- <args...>]"
+    echo
+    echo "platform:"
+    echo "  android   Android 工程, 使用 gradlew assemble/install + adb"
+    echo "  ios       iOS 工程, 使用 tuist build/run"
+    echo "  web       Web 工程, 使用 pnpm/yarn/npm build/dev"
+    echo
+    echo "示例:"
+    echo "  $0 build android com.myapp Debug"
+    echo "  $0 build android --run com.myapp Debug"
+    echo "  $0 build ios MyAppScheme"
+    echo "  $0 build ios --run MyAppScheme \"iPhone 16 Pro\""
+    echo "  $0 build web"
+    echo "  $0 build web --run"
+    exit 0
+    ;;
+  *)
+    agent_error "E_ARG_INVALID" "不支持的 platform='$1'，请使用: android | ios | web"
+    exit 1
+    ;;
+  esac
 
   if [[ $# -gt 0 && "$1" == "--run" ]]; then
     BUILD_SHOULD_RUN=1
@@ -197,61 +411,37 @@ elif [[ "${COMMAND}" == "run" ]]; then
   BUILD_SHOULD_RUN=1
 
   if [[ $# -eq 0 ]]; then
-    # 尝试自动检测平台
-    platforms=()
-    if [[ -f "${REPO_ROOT}/gradlew" ]]; then
-      platforms+=("android")
-    fi
-    if [[ -f "${REPO_ROOT}/Project.swift" || -d "${REPO_ROOT}/Tuist" ]]; then
-      platforms+=("ios")
-    fi
-    if [[ -f "${REPO_ROOT}/package.json" ]]; then
-      platforms+=("web")
-    fi
-
-    if [[ ${#platforms[@]} -eq 1 ]]; then
-      BUILD_PLATFORM="${platforms[0]}"
-      echo "提示: 未显式指定平台, 自动检测为: ${BUILD_PLATFORM}"
-    elif [[ ${#platforms[@]} -eq 0 ]]; then
-      echo "错误: 未检测到已知平台结构。"
-      echo
-      echo "请显式指定平台, 用法:"
-      echo "  $0 run <platform> [-- <args...>]"
-      echo "platform: android | ios | web"
-      exit 1
-    else
-      echo "错误: 检测到多个可能的平台: ${platforms[*]}"
-      echo
-      echo "请显式指定平台, 用法:"
-      echo "  $0 run <platform> [-- <args...>]"
-      exit 1
-    fi
-  else
-    case "$1" in
-    android | ios | web)
-      BUILD_PLATFORM="$1"
-      shift
-      ;;
-    -h | --help)
-      echo "用法: $0 run <platform> [-- <args...>]"
-      echo
-      echo "platform:"
-      echo "  android   Android 工程, 相当于: build android --run"
-      echo "  ios       iOS 工程, 相当于: build ios --run"
-      echo "  web       Web 工程, 相当于: build web --run"
-      echo
-      echo "示例:"
-      echo "  $0 run android com.myapp Debug"
-      echo "  $0 run ios MyAppScheme \"iPhone 16 Pro\""
-      echo "  $0 run web"
-      exit 0
-      ;;
-    *)
-      echo "错误: 不支持的 platform='$1'，请使用: android | ios | web"
-      exit 1
-      ;;
-    esac
+    agent_error "E_ARG_MISSING" "run 需要显式指定平台。"
+    echo
+    echo "用法: $0 run <platform> [-- <args...>]"
+    echo "platform: android | ios | web"
+    exit 1
   fi
+
+  case "$1" in
+  android | ios | web)
+    BUILD_PLATFORM="$1"
+    shift
+    ;;
+  -h | --help)
+    echo "用法: $0 run <platform> [-- <args...>]"
+    echo
+    echo "platform:"
+    echo "  android   Android 工程, 相当于: build android --run"
+    echo "  ios       iOS 工程, 相当于: build ios --run"
+    echo "  web       Web 工程, 相当于: build web --run"
+    echo
+    echo "示例:"
+    echo "  $0 run android com.myapp Debug"
+    echo "  $0 run ios MyAppScheme \"iPhone 16 Pro\""
+    echo "  $0 run web"
+    exit 0
+    ;;
+  *)
+    agent_error "E_ARG_INVALID" "不支持的 platform='$1'，请使用: android | ios | web"
+    exit 1
+    ;;
+  esac
 
   if [[ $# -gt 0 && "$1" == "--" ]]; then
     shift
@@ -264,7 +454,7 @@ elif [[ "${COMMAND}" == "doctor" ]]; then
   shift # 去掉 doctor
 
   if [[ $# -lt 1 ]]; then
-    echo "错误: doctor 命令需要指定平台。"
+    agent_error "E_ARG_MISSING" "doctor 命令需要指定平台。"
     echo
     echo "用法: $0 doctor <platform>"
     echo "platform: android | ios | web"
@@ -290,7 +480,7 @@ elif [[ "${COMMAND}" == "doctor" ]]; then
     exit 0
     ;;
   *)
-    echo "错误: 不支持的 platform='$1'，请使用: android | ios | web"
+    agent_error "E_ARG_INVALID" "不支持的 platform='$1'，请使用: android | ios | web"
     exit 1
     ;;
   esac
@@ -301,7 +491,7 @@ if [[ "${COMMAND}" == "create" || "${COMMAND}" == "cleanup" ]]; then
   case "${TYPE}" in
   feat | bugfix | refactor | chore | exp) ;;
   *)
-    echo "错误: 不支持的 type='${TYPE}'，请使用: feat | bugfix | refactor | chore | exp"
+    agent_error "E_ARG_INVALID" "不支持的 type='${TYPE}'，请使用: feat | bugfix | refactor | chore | exp"
     exit 1
     ;;
   esac
@@ -310,340 +500,6 @@ if [[ "${COMMAND}" == "create" || "${COMMAND}" == "cleanup" ]]; then
   AGENT_DIR_NAME="${REPO_NAME}-agent-${TYPE}-${SCOPE}"
   AGENT_DIR="${AGENT_ROOT}/${AGENT_DIR_NAME}"
 fi
-
-########################################
-# build + doctor
-########################################
-
-maybe_fill_build_args_from_config() {
-  # 如果命令行已经提供了参数, 不再从配置中补全
-  if [[ ${#BUILD_ARGS[@]} -gt 0 ]]; then
-    return 0
-  fi
-
-  local config_file="${REPO_ROOT}/.agent-build.yml"
-  if [[ ! -f "${config_file}" ]]; then
-    return 0
-  fi
-
-  case "${BUILD_PLATFORM}" in
-  android)
-    local pkg variant
-    pkg="$(awk -F': *' '$1=="android_package"{print $2; exit}' "${config_file}" 2>/dev/null || true)"
-    variant="$(awk -F': *' '$1=="android_default_variant"{print $2; exit}' "${config_file}" 2>/dev/null || true)"
-
-    if [[ -z "${pkg}" ]]; then
-      echo "错误: 未提供 Android 包名, 且 .agent-build.yml 中未配置 android_package。"
-      echo
-      echo "请在命令行显式传入包名, 例如:"
-      echo "  $0 build android com.myapp Debug"
-      echo "或在 .agent-build.yml 中添加:"
-      echo "  android_package: com.myapp"
-      echo "  android_default_variant: Debug   # 可选"
-      exit 1
-    fi
-
-    if [[ -n "${variant}" ]]; then
-      BUILD_ARGS=("${pkg}" "${variant}")
-      echo "提示: 从 .agent-build.yml 使用 Android 默认配置: 包名=${pkg}, variant=${variant}"
-    else
-      BUILD_ARGS=("${pkg}")
-      echo "提示: 从 .agent-build.yml 使用 Android 默认配置: 包名=${pkg}"
-    fi
-    ;;
-  ios)
-    local scheme
-    scheme="$(awk -F': *' '$1=="ios_scheme"{print $2; exit}' "${config_file}" 2>/dev/null || true)"
-
-    if [[ -z "${scheme}" ]]; then
-      echo "错误: 未提供 iOS scheme, 且 .agent-build.yml 中未配置 ios_scheme。"
-      echo
-      echo "请在命令行显式传入 scheme, 例如:"
-      echo "  $0 build ios MyAppScheme"
-      echo "或在 .agent-build.yml 中添加:"
-      echo "  ios_scheme: MyAppScheme"
-      exit 1
-    fi
-
-    BUILD_ARGS=("${scheme}")
-    echo "提示: 从 .agent-build.yml 使用 iOS 默认 scheme: ${scheme}"
-    ;;
-  web)
-    # Web 默认不要求额外参数
-    ;;
-  *)
-    ;;
-  esac
-}
-
-build_agent_project() {
-  if [[ -z "${BUILD_PLATFORM}" ]]; then
-    echo "内部错误: BUILD_PLATFORM 为空, 请检查参数解析逻辑。"
-    exit 1
-  fi
-
-  local mode
-  if [[ "${BUILD_SHOULD_RUN}" -eq 1 ]]; then
-    mode="构建并运行"
-  else
-    mode="仅构建"
-  fi
-
-  maybe_fill_build_args_from_config
-
-  echo "==> 主仓根目录: ${REPO_ROOT}"
-  echo "==> 构建平台: ${BUILD_PLATFORM}"
-  echo "==> 构建模式: ${mode}"
-  if [[ ${#BUILD_ARGS[@]} -gt 0 ]]; then
-    echo "==> 透传参数: ${BUILD_ARGS[*]}"
-  else
-    echo "==> 透传参数: (无)"
-  fi
-  echo
-
-  case "${BUILD_PLATFORM}" in
-  android)
-    build_android_project
-    ;;
-  ios)
-    build_ios_project
-    ;;
-  web)
-    build_web_project
-    ;;
-  *)
-    echo "错误: 不支持的构建平台: ${BUILD_PLATFORM}"
-    exit 1
-    ;;
-  esac
-}
-
-build_android_project() {
-  echo "[agent-build][android] 开始执行 Android 构建流程"
-
-  cd "${REPO_ROOT}"
-
-  if [[ ! -f "./gradlew" ]]; then
-    echo "错误: 当前仓库根目录下未找到 ./gradlew, 请在 Android 工程根目录执行。"
-    exit 1
-  fi
-
-  local package_name variant
-
-  if [[ ${#BUILD_ARGS[@]} -ge 1 ]]; then
-    package_name="${BUILD_ARGS[0]}"
-  else
-    echo "错误: 未提供 Android 包名, 且 .agent-build.yml 也未补充。"
-    echo
-    echo "请在命令行显式传入包名, 例如:"
-    echo "  $0 build android com.myapp Debug"
-    echo "或在 .agent-build.yml 中添加:"
-    echo "  android_package: com.myapp"
-    exit 1
-  fi
-
-  if [[ ${#BUILD_ARGS[@]} -ge 2 ]]; then
-    variant="${BUILD_ARGS[1]}"
-  else
-    variant="Debug"
-  fi
-
-  if [[ "${BUILD_SHOULD_RUN}" -eq 1 ]]; then
-    if ! command -v adb >/dev/null 2>&1; then
-      echo "错误: 未找到 adb 命令, 请安装 Android Platform Tools 并配置 PATH。"
-      exit 1
-    fi
-
-    if ! adb devices | awk 'NR>1 && $2=="device"{found=1} END{exit found?0:1}'; then
-      echo "错误: 未检测到已连接的设备或模拟器, 请先启动设备后再重试。"
-      exit 1
-    fi
-  fi
-
-  echo "[agent-build][android] 使用 variant: ${variant}"
-  echo "[agent-build][android] 执行: ./gradlew assemble${variant}"
-  ./gradlew "assemble${variant}"
-
-  if [[ "${BUILD_SHOULD_RUN}" -eq 1 ]]; then
-    echo "[agent-build][android] 执行: ./gradlew install${variant}"
-    ./gradlew "install${variant}"
-
-    echo "[agent-build][android] 通过 adb 启动应用: ${package_name}"
-    adb shell monkey -p "${package_name}" -c android.intent.category.LAUNCHER 1
-  fi
-
-  echo "[agent-build][android] 完成。"
-}
-
-build_ios_project() {
-  echo "[agent-build][ios] 开始执行 iOS 构建流程"
-
-  cd "${REPO_ROOT}"
-
-  local scheme
-
-  if [[ ${#BUILD_ARGS[@]} -ge 1 ]]; then
-    scheme="${BUILD_ARGS[0]}"
-  else
-    echo "错误: 未提供 iOS scheme, 且 .agent-build.yml 也未补充。"
-    echo
-    echo "请在命令行显式传入 scheme, 例如:"
-    echo "  $0 build ios MyAppScheme"
-    echo "或在 .agent-build.yml 中添加:"
-    echo "  ios_scheme: MyAppScheme"
-    exit 1
-  fi
-
-  local extra_args=()
-  if [[ ${#BUILD_ARGS[@]} -gt 1 ]]; then
-    extra_args=("${BUILD_ARGS[@]:1}")
-  fi
-
-  if ! command -v tuist >/dev/null 2>&1; then
-    echo "错误: 未找到 tuist 命令, 请先安装 tuist 并配置 PATH。"
-    exit 1
-  fi
-
-  if ! command -v xcodebuild >/dev/null 2>&1; then
-    echo "错误: 未找到 xcodebuild, 请安装 Xcode 并在 Xcode 中安装命令行工具。"
-    exit 1
-  fi
-
-  if [[ ! -f "Project.swift" && ! -d "Tuist" ]]; then
-    echo "[agent-build][ios] 提示: 未检测到 Project.swift 或 Tuist 目录, 请确认当前目录为 Tuist 工程根目录。"
-  fi
-
-  if [[ "${BUILD_SHOULD_RUN}" -eq 1 ]]; then
-    echo "[agent-build][ios] 使用 tuist run, scheme=${scheme}, extra_args=${extra_args[*]:-}"
-    tuist run "${scheme}" "${extra_args[@]}"
-  else
-    echo "[agent-build][ios] 使用 tuist build, scheme=${scheme}, extra_args=${extra_args[*]:-}"
-    tuist build "${scheme}" "${extra_args[@]}"
-  fi
-
-  echo "[agent-build][ios] 完成。"
-}
-
-build_web_project() {
-  echo "[agent-build][web] 开始执行 Web 构建流程"
-
-  cd "${REPO_ROOT}"
-
-  if [[ ! -f "package.json" ]]; then
-    echo "错误: 未找到 package.json, 请在 Web 工程根目录执行。"
-    exit 1
-  fi
-
-  local pm=""
-  if command -v pnpm >/dev/null 2>&1; then
-    pm="pnpm"
-  elif command -v yarn >/dev/null 2>&1; then
-    pm="yarn"
-  elif command -v npm >/dev/null 2>&1; then
-    pm="npm"
-  else
-    echo "错误: 未找到 pnpm/yarn/npm, 请至少安装一种 Node.js 包管理器并配置 PATH。"
-    exit 1
-  fi
-
-  echo "[agent-build][web] 使用包管理器: ${pm}"
-
-  local extra_args=()
-  if [[ ${#BUILD_ARGS[@]} -gt 0 ]]; then
-    extra_args=("${BUILD_ARGS[@]}")
-  fi
-
-  if [[ "${BUILD_SHOULD_RUN}" -eq 1 ]]; then
-    echo "[agent-build][web] 以开发/运行模式启动, 透传参数: ${extra_args[*]:-}"
-    case "${pm}" in
-      pnpm) pnpm dev "${extra_args[@]}" ;;
-      yarn) yarn dev "${extra_args[@]}" ;;
-      npm)  npm run dev -- "${extra_args[@]}" ;;
-    esac
-  else
-    echo "[agent-build][web] 构建 Web 工程, 透传参数: ${extra_args[*]:-}"
-    case "${pm}" in
-      pnpm) pnpm build "${extra_args[@]}" ;;
-      yarn) yarn build "${extra_args[@]}" ;;
-      npm)  npm run build -- "${extra_args[@]}" ;;
-    esac
-  fi
-
-  echo "[agent-build][web] 完成。"
-}
-
-doctor_agent_environment() {
-  if [[ -z "${DOCTOR_PLATFORM}" ]]; then
-    echo "内部错误: DOCTOR_PLATFORM 为空, 请检查参数解析逻辑。"
-    exit 1
-  fi
-
-  echo "==> Doctor 平台: ${DOCTOR_PLATFORM}"
-  echo "==> 主仓根目录: ${REPO_ROOT}"
-
-  case "${DOCTOR_PLATFORM}" in
-  android)
-    doctor_android_environment
-    ;;
-  ios)
-    doctor_ios_environment
-    ;;
-  web)
-    doctor_web_environment
-    ;;
-  *)
-    echo "内部错误: 不支持的 DOCTOR_PLATFORM='${DOCTOR_PLATFORM}'。"
-    exit 1
-    ;;
-  esac
-
-  echo
-  echo "Doctor 检查完成。如有 ✖ 项, 请根据建议修复后再执行 build/run。"
-}
-
-########################################
-# status
-########################################
-
-status_agents() {
-  echo "==> Agent 根目录: ${AGENT_ROOT}"
-  if [[ ! -d "${AGENT_ROOT}" ]]; then
-    echo "当前没有任何 Agent 仓库。"
-    return 0
-  fi
-
-  shopt -s nullglob
-  for dir in "${AGENT_ROOT}"/*; do
-    [[ -d "$dir" ]] || continue
-    local meta="${dir}/.agent-meta.yml"
-    local name branch base_branch
-    name="$(basename "${dir}")"
-
-    if [[ -f "${meta}" ]]; then
-      branch="$(awk -F': ' '/^branch:/{print $2; exit}' "${meta}" || true)"
-      base_branch="$(awk -F': ' '/^base_branch:/{print $2; exit}' "${meta}" || true)"
-    else
-      branch=""
-      base_branch=""
-    fi
-
-    echo
-    echo "==> ${name} ${branch:+(${branch})} ${base_branch:+[base:${base_branch}]}"
-    if [[ ! -d "${dir}/.git" && ! -f "${dir}/.git" ]]; then
-      echo "  !! 非 git 仓库，跳过"
-      continue
-    fi
-
-    local out
-    out="$(git -C "${dir}" status --short || echo "  !! git status 失败")"
-    if [[ -z "${out}" ]]; then
-      echo "  工作区干净"
-    else
-      echo "${out}" | sed 's/^/  /'
-    fi
-  done
-  shopt -u nullglob
-}
 
 ########################################
 # 命令分派
@@ -670,6 +526,10 @@ run)
   ;;
 doctor)
   doctor_agent_environment
+  ;;
+dev)
+  echo "dev 模块尚未实现，预留用于开发期流程/规范/模板。"
+  exit 1
   ;;
 *)
   usage

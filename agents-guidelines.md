@@ -47,40 +47,41 @@
   │    └─ agent-tool.sh
   └─ AGENTS.md
 
-2.1 创建 Agent 环境：create
+2.1 创建 Agent 环境：ws create
 
 在主仓根目录内部执行：
 
 cd /path/to/your/repo
 
-# 默认：以当前主仓所在分支为基线
-./scripts/agent-tool.sh create <type> <scope>
+# 默认：以当前主仓所在分支为基线（或使用全局配置 DEFAULT_BASE_BRANCH）
+./scripts/agent-tool.sh ws create <type> <scope>
 
 # 显式：以指定分支为基线（如 dev/main/release/*）
-./scripts/agent-tool.sh create --base-branch dev <type> <scope>
+./scripts/agent-tool.sh ws create --base-branch dev <type> <scope>
 
 示例：
 
 # 假设当前在分支 feature/homepage 上
-./scripts/agent-tool.sh create feat user-profile-header
+./scripts/agent-tool.sh ws create feat user-profile-header
 # => Agent 父仓分支基于 feature/homepage 创建 agent/feat/user-profile-header
 # => submodule 也优先尝试基于 feature/homepage 创建/切换 agent/feat/user-profile-header
 
 # 若希望强制基于 dev 分支：
-./scripts/agent-tool.sh create --base-branch dev feat user-profile-header
+./scripts/agent-tool.sh ws create --base-branch dev feat user-profile-header
 # => Agent 父仓分支基于 dev 创建 agent/feat/user-profile-header
 # => submodule 也优先尝试基于 dev 创建/切换 agent/feat/user-profile-header
 
 基线选择规则：
 	•	默认（未指定 --base-branch）：
-	•	读取当前主仓分支 CURRENT_BRANCH；
+	•	若配置文件 (~/.agent-tool/config) 中定义 DEFAULT_BASE_BRANCH，则优先使用该分支作为基线；
+	•	否则读取当前主仓分支 CURRENT_BRANCH；
 	•	父仓：
-	•	优先 origin/CURRENT_BRANCH；
-	•	否则本地 CURRENT_BRANCH；
+	•	优先 origin/<基线分支>；
+	•	否则本地 <基线分支>；
 	•	都不存在则回退 HEAD。
 	•	submodule：
-	•	优先 origin/CURRENT_BRANCH；
-	•	否则本地 CURRENT_BRANCH；
+	•	优先 origin/<基线分支>；
+	•	否则本地 <基线分支>；
 	•	若不存在该分支，则保持子仓当前分支/commit 不变。
 	•	显式指定 --base-branch <branch>：
 	•	父仓：
@@ -103,25 +104,25 @@ cd /path/to/your/repo
 	•	.agent-meta.yml（包含 type/scope/branch/base_branch/created_at/...）
 	•	README_AGENT.md。
 
-2.2 清理 Agent 环境：cleanup
+2.2 清理 Agent 环境：ws cleanup --force
 
 仅删除本地 Agent 仓库目录，不修改远端分支：
 
 cd /path/to/your/repo
-./scripts/agent-tool.sh cleanup <type> <scope>
+./scripts/agent-tool.sh ws cleanup --force <type> <scope>
 
 示例：
 
-./scripts/agent-tool.sh cleanup feat user-profile-header
+./scripts/agent-tool.sh ws cleanup --force feat user-profile-header
 
 删除：
 
 <parent-dir>/<repo-name>-agents/<repo-name>-agent-feat-user-profile-header/
 
-2.3 列出所有 Agent 仓库：list
+2.3 列出所有 Agent 仓库：ws list
 
 cd /path/to/your/repo
-./scripts/agent-tool.sh list
+./scripts/agent-tool.sh ws list
 
 输出示例：
 
@@ -134,10 +135,10 @@ my-app-agent-feat-user-profile-header    feat     user-profile-header           
 
 数据来自每个 Agent 根目录的 .agent-meta.yml。
 
-2.4 查看 Agent 仓库状态：status
+2.4 查看 Agent 仓库状态：ws status
 
 cd /path/to/your/repo
-./scripts/agent-tool.sh status
+./scripts/agent-tool.sh ws status
 
 示例：
 

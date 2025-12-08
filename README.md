@@ -1,6 +1,10 @@
 # agent-tool
 
-用于在任意 Git 仓库中创建 / 管理针对单个任务的 Agent 工作空间, 并为常见平台提供统一的构建/运行入口。
+用于在任意 Git 仓库中创建 / 管理针对单个任务的 Agent 工作空间, 并为常见平台提供统一的构建/运行入口。内部按模块目录拆分：
+
+- `cfg/`：统一配置脚本（软链初始化/刷新、MCP 生成、别名）
+- `doctor/`：自检脚本（含 cfg_doctor）
+- `ws/`、`dev/`、`build/`：预留模块目录，便于后续拆分
 
 ## 安装与前置要求
 
@@ -9,28 +13,34 @@
 
 ## 基础命令
 
-- `./agent-tool.sh create [--base-branch <branch>] <type> <scope>`  
-  基于当前仓库创建一个独立的 Agent 仓库, 并以 `agent/<type>/<scope>` 作为分支名。
-- `./agent-tool.sh cleanup <type> <scope>`  
-  删除对应的 Agent 仓库目录 (不影响主仓)。
-- `./agent-tool.sh list`  
-  列出所有已存在的 Agent 仓库及其元信息。
-- `./agent-tool.sh status`  
-  显示所有 Agent 仓库的简要 `git status`。
+- `./agent-tool.sh ws <subcommand> [...]`  
+  workspace 分组入口，所有 Agent 工作区相关操作都挂在 `ws` 之下。
+- `./agent-tool.sh cfg <subcommand> [...]`  
+  针对统一配置目录的快捷操作（软链刷新、自检、生成 MCP 等）。
 
 参数约定:
 
 - `<type>`: `feat | bugfix | refactor | chore | exp`
 - `<scope>`: 任务范围, 使用 kebab-case, 例如: `user-profile-header`
+- `ws` 子命令:
+  - `ws create [--base-branch <branch>] <type> <scope>`
+  - `ws cleanup --force <type> <scope>`   # 危险: 删除 agent workspace 目录
+  - `ws list`
+  - `ws status`
+- `cfg` 子命令:
+  - `cfg init` / `cfg init-force`: 运行 `cfg/install_symlinks.sh -v [--force]`
+  - `cfg refresh`: 刷新文件级软链（新增 commands/skills/hooks/agents 后用）
+  - `cfg selftest [--v]`: 自检配置目录与软链状态
+  - `cfg mcp [options]`: 在项目根生成项目级 MCP 配置（透传选项到 `project_mcp_setup.sh`）
 
 ## 构建与运行命令
 
 本工具内置了针对常见平台的构建/运行流程, 不需要在项目中额外创建脚本文件:
 
 - `./agent-tool.sh build <platform> [--run] [-- <args...>]`  
-  在当前仓库中执行对应平台的构建逻辑。
+  在当前仓库中执行对应平台的构建逻辑（必须显式指定 `<platform>`）。
 - `./agent-tool.sh run <platform> [-- <args...>]`  
-  便捷运行, 等价于: `build <platform> --run [-- <args...>]`。
+  便捷运行, 等价于: `build <platform> --run [-- <args...>]`（同样需要显式指定 `<platform>`）。
 
 支持的平台与行为概要:
 
@@ -59,26 +69,11 @@
   - 构建并运行: `./agent-tool.sh build web --run`
   - 便捷运行: `./agent-tool.sh run web`
 
-### 自动平台检测
-
-当你省略 `<platform>` 时, 工具会尝试自动检测:
-
-- `./agent-tool.sh build`  
-  若只检测到一种平台结构 (例如仅存在 `gradlew` 或仅存在 `package.json`), 将自动选择该平台。
-- `./agent-tool.sh run`  
-  同上, 自动检测平台后以 `--run` 模式调用。
-
-检测规则 (只在你未显式指定 `<platform>` 时使用):
-
-- Android: 仓库根目录存在 `./gradlew`
-- iOS: 仓库根目录存在 `Project.swift` 或 `Tuist/` 目录
-- Web: 仓库根目录存在 `package.json`
-
-当检测不到或检测到多个平台时, 会给出中文错误提示并要求你显式指定平台。
+> 注意：`build` / `run` 必须显式指定 `<platform>`，不再支持省略后自动检测平台。
 
 ## 平台参数约定
 
-不同平台对 `build`/`run` 的参数约定如下 (省略 `<platform>` 时会自动检测):
+不同平台对 `build`/`run` 的参数约定如下：
 
 - Android:
   - `./agent-tool.sh build android [--run] <包名> [variant]`
@@ -161,6 +156,7 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 - `./agent-tool.sh doctor <platform>`
 
 用途: 快速检查当前仓库是否已经为指定平台准备好必要的工程结构与关键工具链。
+额外检查: 自动调用 `doctor/cfg_doctor.sh` 执行统一配置目录（AI_HOME）软链与目录自检。
 
 检查内容 (不会修改任何文件, 仅输出信息):
 
@@ -183,33 +179,86 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 
 输出中会用 `✔` / `✖` 标记检查结果, 并在失败时给出建议 (例如「请安装 tuist 并配置 PATH」等)。
 
+## 配置快捷命令 (cfg)
+
+`agent-tool.sh` 内置 `cfg` 子命令，调用 `cfg/` 目录下的脚本（默认路径 `$(dirname agent-tool.sh)/cfg`，可通过 `CFG_DIR` 覆盖，`DOCTOR_DIR` 覆盖自检脚本路径）。
+
+示例：
+
+```bash
+# 初始化软链
+./agent-tool.sh cfg init
+
+# 强制接管非软链路径
+./agent-tool.sh cfg init-force
+
+# 新增 commands/skills/hooks/agents 后刷新软链
+./agent-tool.sh cfg refresh
+
+# 自检配置目录及软链
+./agent-tool.sh cfg selftest -v
+
+# 在项目根生成项目级 MCP 配置（Claude/Gemini/Codex）
+./agent-tool.sh cfg mcp -v --claude
+```
+
 ## 开发与校验
 
 - 语法检查: `bash -n agent-tool.sh`
 - 静态分析 (可选): `shellcheck agent-tool.sh`
+- 自检: `./agent-tool.sh test self`（对核心脚本执行一次 `bash -n`）
+
+## 全局配置文件 (~/.agent-tool/config)
+
+`agent-tool.sh` 启动时会尝试加载全局配置文件（默认路径 `~/.agent-tool/config`，可通过 `AGENT_TOOL_CONFIG` 环境变量覆盖），该文件是一个普通的 shell 脚本片段，可以用来设置一些默认变量，例如:
+
+```bash
+# 默认 Agent workspace 根目录（未显式设置 AGENT_ROOT 时，用于拼接 <repo>-agents）
+AGENT_ROOT="$HOME/Agents"
+
+# ws create 默认基线分支（未指定 --base-branch 时优先使用）
+DEFAULT_BASE_BRANCH="dev"
+
+# 统一配置目录（cfg/install_symlinks.sh 和 doctor/cfg_doctor.sh 会读取）
+AI_HOME="$HOME/.agents"
+```
+
+注意:
+- 配置文件在加载时会继承 `set -euo pipefail`，请只写简单的赋值语句，避免有副作用的命令。
+- CLI 实际行为以命令行参数优先（例如 `ws create --base-branch` 会覆盖 `DEFAULT_BASE_BRANCH`）。
 
 建议修改脚本后至少执行一次 `bash -n` 以确保没有语法错误。
 
 ### 脚本结构说明
 
-当前仓库将功能按职责拆分为多个脚本文件:
+当前仓库将功能按职责拆分为多个脚本文件/子目录:
 
 - `agent-tool.sh`  
   主入口脚本, 负责:
-  - 命令行解析 (`create/cleanup/list/status/build/run/doctor`)
+  - 命令行解析 (`create/cleanup/list/status/build/run/doctor/cfg/ws/dev`)
   - 计算 `REPO_ROOT` / `AGENT_ROOT` / `BRANCH` 等公共变量
   - 读取 `.agent-build.yml`, 并按平台分发到对应的构建/自检逻辑
-- `agent-workspace.sh`  
+  - 将 `ws/` / `build/` / `doctor/` 等子模块加载进来
+- `ws/workspace.sh`  
   Agent 工作空间相关逻辑:
-  - `create` / `cleanup` / `list` / `status`
+  - `create_agent_repo` / `cleanup_agent_repo` / `list_agents` / `status_agents`
   - 创建/删除 Agent 仓库目录, 初始化 submodules, 创建分支, 生成 `.agent-meta.yml` 与 `README_AGENT.md`
-- `agent-android.sh`  
-  Android 平台构建与环境检查 (`build android` / `run android` / `doctor android`)。
-- `agent-ios.sh`  
-  iOS(Tuist) 平台构建与环境检查 (`build ios` / `run ios` / `doctor ios`)。
-- `agent-web.sh`  
-  Web 平台构建与环境检查 (`build web` / `run web` / `doctor web`)。
+- `build/platforms.sh`  
+  平台构建与运行逻辑:
+  - `build_agent_project` 统一入口
+  - `build_android_project` / `build_ios_project` / `build_web_project`
+  - `maybe_fill_build_args_from_config` 读取 `.agent-build.yml` 补全默认参数
+- `doctor/` 目录  
+  - `doctor/cfg_doctor.sh`：检查统一配置目录（AI_HOME）与软链状态
+  - `doctor/platforms.sh`：针对 Android / iOS / Web 的构建环境自检 (`doctor_*_environment` + `doctor_agent_environment`)
+- `cfg/` 目录  
+  - `cfg/install_symlinks.sh`：初始化/刷新软链
+  - `cfg/project_mcp_setup.sh`：基于 snippet 生成项目级 MCP 配置
+  - `cfg/aliases.sh`：别名 loader（按职责拆分在 `cfg/aliases.d/*.sh` 中）
+  - `cfg/index.sh`：提供 `agent_error` 等通用工具函数
+ - `dev/` 目录  
+   - `dev/index.sh`：预留 dev 模块入口（未来扩展用）
+ - `test/` 目录  
+   - `test/index.sh`：`agent-tool test` 子命令实现入口
 
 对使用者而言, CLI 使用方式与原先保持一致, 仍然只需要调用 `./agent-tool.sh ...` 即可; 其余脚本由入口自动加载, 无需手动执行。***
-
-
