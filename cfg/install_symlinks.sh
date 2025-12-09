@@ -384,88 +384,6 @@ ensure_dir "${AGENT_HOME}/agents/claude"
 
 ensure_dir "${AGENT_HOME}/mcp"
 
-  # 示例命令：/review（优先从模板目录复制）
-
-  if [[ ! -f "${AGENT_HOME}/commands/shared/review.md" ]]; then
-    local review_template="${SCRIPT_DIR}/templates/commands/shared/review.md"
-    if [[ -f "${review_template}" ]]; then
-      if $DRY_RUN; then
-        log_verbose "将从模板复制示例命令: ${review_template} -> ${AGENT_HOME}/commands/shared/review.md"
-      else
-        cp "${review_template}" "${AGENT_HOME}/commands/shared/review.md"
-        log_verbose "已从模板复制示例命令: review.md"
-      fi
-    else
-      if $DRY_RUN; then
-        log_verbose "未找到 review 模板，将使用内联默认内容创建示例命令: commands/shared/review.md"
-      else
-        cat > "${AGENT_HOME}/commands/shared/review.md" <<'EOF'
-
-# review
-
-你现在扮演一名「严格但理性的高级工程师」。
-
-任务：
-
-* 针对当前变更做 Code Review。
-* 优先关注：
-
-  * 架构边界是否被破坏（模块间耦合是否合理）
-  * 可测试性（是否容易写单测/集成测试）
-  * 性能风险（明显的 N+1、主线程重活等）
-* 给出「最小可审阅 diff」建议，而不是大面积重写。
-* 最后用一句话总结风险等级：low / medium / high，并给出理由。
-EOF
-        log_verbose "已创建示例命令: review.md"
-      fi
-    fi
-  fi
-
-  # 示例命令：/enhance（优先从模板目录复制）
-
-  if [[ ! -f "${AGENT_HOME}/commands/shared/enhance.md" ]]; then
-    local enhance_template="${SCRIPT_DIR}/templates/commands/shared/enhance.md"
-    if [[ -f "${enhance_template}" ]]; then
-      if $DRY_RUN; then
-        log_verbose "将从模板复制示例命令: ${enhance_template} -> ${AGENT_HOME}/commands/shared/enhance.md"
-      else
-        cp "${enhance_template}" "${AGENT_HOME}/commands/shared/enhance.md"
-        log_verbose "已从模板复制示例命令: enhance.md"
-      fi
-    else
-      if $DRY_RUN; then
-        log_verbose "未找到 enhance 模板，将使用内联默认内容创建示例命令: commands/shared/enhance.md"
-      else
-        cat > "${AGENT_HOME}/commands/shared/enhance.md" <<'EOF'
-# enhance
-
----
-
-description: "使用 prompt-enhancer MCP 优化指令并经用户确认后再执行。"
-
----
-
-你现在扮演一名「Prompt 优化助手 + 执行代理」。
-
-目标：在真正开始执行用户任务之前，先用 MCP 的 `prompt-enhancer` 工具优化用户的原始指令，并让用户确认增强后的版本（寸止），再据此展开后续工作。
-
-工作流要求：
-
-1. 把用户通过 `/enhance ...` 提供的文本视为原始指令 `origin_prompt`。
-2. 调用名为 `prompt-enhancer` 的 MCP 工具，对 `origin_prompt` 做一次优化。向该工具发送的内容应仅包含原始指令文本本身。
-3. 从工具返回结果中，解析出 `<augment-enhanced-prompt>...</augment-enhanced-prompt>` 标签内的增强后指令，把它记为 `enhanced_prompt`。
-4. 先「寸止」给出结果：用中文简要说明 `enhanced_prompt` 相比原始指令有哪些关键优化（例如更清晰的目标、范围、约束或安全提醒），并完整展示 `enhanced_prompt`，此时不要开始执行任务。
-5. 明确询问用户是否接受这个增强版本：例如提示用户回复 `OK` / `Y` 或给出修改意见。
-6. 只有在用户确认后，才把 `enhanced_prompt` 视为真正的任务指令，继续后续的推理、工具调用和实现工作；后续所有操作都应基于 `enhanced_prompt`，而不是 `origin_prompt`。
-7. 如果用户对增强结果不满意或提出新要求，根据用户的补充重新调用 `prompt-enhancer` 调整指令，再次进入确认流程。
-
-当你看到用户以 `/enhance ...` 的形式发起请求时，请严格按照上述工作流执行，而不是直接处理原始指令。
-EOF
-        log_verbose "已创建示例命令: enhance.md"
-      fi
-    fi
-  fi
-
   # 示例 Skill：sayhello（从模板目录复制，用于验证 Skill 管线）
 
   local skill_dir="${AGENT_HOME}/skills/shared/sayhello"
@@ -481,6 +399,75 @@ EOF
     fi
   else
     log_verbose "未找到 sayhello 模板目录: ${template_skill_dir}，跳过示例 Skill 初始化"
+  fi
+
+  # 同步 commands/shared：从模板目录复制到 $AGENT_HOME/commands/shared
+  # init 模式：只复制新文件；upgrade 模式：强制同步所有模板
+
+  local commands_template_dir="${SCRIPT_DIR}/templates/commands/shared"
+
+  if [[ -d "${commands_template_dir}" ]]; then
+    shopt -s nullglob
+    for template in "${commands_template_dir}"/*.md; do
+      local name
+      name="$(basename "${template}")"
+      local dest="${AGENT_HOME}/commands/shared/${name}"
+      if [[ ! -f "${dest}" ]]; then
+        if $DRY_RUN; then
+          log_verbose "将从模板复制命令: ${name}"
+        else
+          cp "${template}" "${dest}"
+          log_verbose "已从模板复制命令: ${name}"
+        fi
+      elif $UPGRADE; then
+        # 升级模式下，无条件同步模板
+        if $DRY_RUN; then
+          log_verbose "将更新命令: ${name}"
+        else
+          cp "${template}" "${dest}"
+          log_verbose "已更新命令: ${name}"
+        fi
+      else
+        log_verbose "命令已存在，跳过: ${name}"
+      fi
+    done
+    shopt -u nullglob
+  else
+    log_verbose "未找到 commands 模板目录: ${commands_template_dir}"
+  fi
+
+  # 同步 output-styles：从模板目录复制到 $AGENT_HOME/output-styles/shared
+  # init 模式：只复制新文件；upgrade 模式：强制同步所有模板
+
+  local output_styles_template_dir="${SCRIPT_DIR}/templates/output-styles"
+
+  if [[ -d "${output_styles_template_dir}" ]]; then
+    shopt -s nullglob
+    for template in "${output_styles_template_dir}"/*.md; do
+      local name
+      name="$(basename "${template}")"
+      local dest="${AGENT_HOME}/output-styles/shared/${name}"
+      if [[ ! -f "${dest}" ]]; then
+        if $DRY_RUN; then
+          log_verbose "将从模板复制输出风格: ${name}"
+        else
+          cp "${template}" "${dest}"
+          log_verbose "已从模板复制输出风格: ${name}"
+        fi
+      elif $UPGRADE; then
+        if $DRY_RUN; then
+          log_verbose "将更新输出风格: ${name}"
+        else
+          cp "${template}" "${dest}"
+          log_verbose "已更新输出风格: ${name}"
+        fi
+      else
+        log_verbose "输出风格已存在，跳过: ${name}"
+      fi
+    done
+    shopt -u nullglob
+  else
+    log_verbose "未找到 output-styles 模板目录: ${output_styles_template_dir}"
   fi
 
 # MCP snippet 占位文件（不含密钥）

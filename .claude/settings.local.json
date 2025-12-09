@@ -2,7 +2,12 @@
   "permissions": {
     "allow": [
       "Bash(/Users/est8/scripts/agent-tool/cfg/templates/skills/sayhello/scripts/run.sh:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(/Users/est8/scripts/agent-tool/agent-tool.sh cfg refresh:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.claude.com)"
     ]
   }
 }

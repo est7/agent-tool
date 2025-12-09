@@ -32,6 +32,9 @@ $AGENT_HOME
 │   ├── claude-only/          # 仅 Claude 使用
 │   ├── codex-only/           # 仅 Codex 使用
 │   └── gemini-only/          # 仅 Gemini 使用
+├── output-styles/
+│   ├── shared/               # 通用输出风格（Claude / Codex 等共享）
+│   └── claude-only/          # 仅 Claude 使用的输出风格
 ├── mcp/
 │   ├── claude.json.snippet   # 填入到项目 .mcp.json 的片段（不含密钥）
 │   ├── gemini.json.snippet   # 填入到项目 .gemini/settings.json 的片段
@@ -66,6 +69,33 @@ $AGENT_HOME
 ```bash
 ./cfg/install_symlinks.sh -u -v  # 只删除软链，不删除 $AGENT_HOME 本身
 ```
+
+---
+
+## 输出风格（output-styles）
+
+`output-styles/` 用于存放 Claude / Codex 等客户端可以直接选择的「输出风格」 Markdown 文件。
+
+- 实际生效路径是 `$AGENT_HOME/output-styles/`。
+- Claude Desktop / Claude Web 会从 `~/.claude/output-styles/` 读取，本仓库通过软链把它指向 `$AGENT_HOME/output-styles/`。
+- 推荐目录划分：
+  - `output-styles/shared/`：通用输出风格，Claude / Codex 等都可以复用。
+  - `output-styles/claude-only/`：仅 Claude 使用的输出风格。
+
+当前仓库已经在 `cfg/install_symlinks.sh` 中内置了一步「示例输出风格同步」：
+
+- 运行 `agent-tool cfg init` 或直接执行 `cfg/install_symlinks.sh` 时，
+- 会把 `cfg/templates/output-styles/` 下的 `*.md` 文件（例如 `linus-engineer.md`、`tech-mentor.md`）
+- 复制到 `$AGENT_HOME/output-styles/shared/` 中（若目标文件已存在则不会覆盖）。
+
+之后，这些样式会通过软链出现在：
+
+- `~/.claude/output-styles/`（Claude Desktop / Claude Web 可直接选择）
+
+如果你有新的输出风格，只需：
+
+1. 把 `.md` 文件放到 `$AGENT_HOME/output-styles/shared/` 或 `output-styles/claude-only/`。
+2. 或者先放到 `cfg/templates/output-styles/`，再跑一次 `agent-tool cfg init` 或 `cfg/install_symlinks.sh` 让脚本帮你从模板复制一份到 `$AGENT_HOME`。
 
 ---
 

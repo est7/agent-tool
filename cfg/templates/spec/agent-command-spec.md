@@ -1,55 +1,133 @@
-# Agent Skills Spec
+# Agent Slash Commands Spec
 
-A skill is a folder of instructions, scripts, and resources that agents can discover and load dynamically to perform better at specific tasks. In order for the folder to be recognized as a skill, it must contain a `SKILL.md` file.
+Slash commands are Markdown files that define reusable prompts. When invoked, the file content becomes part of the conversation context.
 
-# Skill Folder Layout
+Official documentation: https://code.claude.com/docs/en/slash-commands
 
-A minimal skill folder looks like this:
+## File Locations
+
+| Scope | Location | Display in `/help` |
+|-------|----------|-------------------|
+| Project | `.claude/commands/` | `(project)` |
+| User | `~/.claude/commands/` | `(user)` |
+
+Project commands take precedence over user commands with the same name.
+
+## File Format
+
+Commands are Markdown files (`.md`). The filename (without extension) becomes the command name.
 
 ```
-my-skill/
-  - SKILL.md
+.claude/commands/
+├── review.md        → /review
+├── commit.md        → /commit
+└── frontend/
+    └── component.md → /component (project:frontend)
 ```
-
-More complex skills can add additional directories and files as needed.
-
-
-# The SKILL.md file
-
-The skill's "entrypoint" is the `SKILL.md` file. It is the only file required to exist. The file must start with a YAML frontmatter followed by regular Markdown.
 
 ## YAML Frontmatter
 
-The YAML frontmatter has 2 required properties:
+Optional frontmatter at the start of the file:
 
-- `name`
-    - The name of the skill in hyphen-case
-    - Restricted to lowercase Unicode alphanumeric + hyphen
-    - Must match the name of the directory containing the SKILL.md
-- `description`
-    - Description of what the skill does and when Claude should use it
+```yaml
+---
+allowed-tools: Bash(git add:*), Bash(git status:*)
+argument-hint: [message]
+description: Brief description of the command
+model: claude-3-5-haiku-20241022
+disable-model-invocation: true
+---
+```
 
-There are 3 optional properties:
+### Frontmatter Fields
 
-- `license`
-    - The license applied to the skill
-    - We recommend keeping it short (either the name of a license or the name of a bundled license file)
-- `allowed-tools`
-    - A list of tools that are pre-approved to run
-    - Currently only supported in Claude Code
-- `metadata`
-    - A map from string keys to string values
-    - Clients can use this to store additional properties not defined by the Agent Skills Spec
-    - We recommend making your key names reasonably unique to avoid accidental conflicts
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `allowed-tools` | string | Inherits | Comma-separated list of pre-approved tools |
+| `argument-hint` | string | None | Shows expected arguments in autocomplete |
+| `description` | string | First line | Brief command description |
+| `model` | string | Inherits | Specific model for this command |
+| `disable-model-invocation` | boolean | `false` | Prevent SlashCommand tool from calling this |
 
-## Markdown Body
+## Parameter Placeholders
 
-The Markdown body has no restrictions on it.
+### All Arguments: `$ARGUMENTS`
 
-# Additional Information
+```markdown
+Create a git commit with message: $ARGUMENTS
+```
 
-For a minimal example, see the `template-skill` example.
+Usage: `/commit fix login bug` → `$ARGUMENTS = "fix login bug"`
 
-# Version History
+### Positional Arguments: `$1`, `$2`, `$3`...
 
-- 1.0 (2025-10-16) Public Launch
+```markdown
+---
+argument-hint: [pr-number] [priority] [assignee]
+---
+
+Review PR #$1 with priority $2 and assign to $3.
+```
+
+Usage: `/review-pr 456 high alice` → `$1="456"`, `$2="high"`, `$3="alice"`
+
+## Bash Command Execution
+
+Use `!` prefix to execute bash commands. Output is included in context.
+
+**Requires** `allowed-tools` in frontmatter:
+
+```markdown
+---
+allowed-tools: Bash(git status:*), Bash(git diff:*), Bash(git log:*)
+---
+
+Current status: !`git status`
+Recent commits: !`git log --oneline -5`
+```
+
+## File References
+
+Use `@` prefix to include file contents:
+
+```markdown
+Review the implementation in @src/utils/helpers.js
+```
+
+## Directory Organization
+
+Subdirectories create namespaces shown in description:
+
+```
+.claude/commands/
+├── frontend/
+│   └── build.md    → /build (project:frontend)
+└── backend/
+    └── build.md    → /build (project:backend)
+```
+
+## Complete Example
+
+```markdown
+---
+allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git commit:*), Bash(git log:*)
+argument-hint: [commit message]
+description: Create a git commit with context
+---
+
+## Context
+
+- Current status: !`git status --short`
+- Staged diff: !`git diff --cached`
+- Recent commits: !`git log --oneline -5`
+
+## Task
+
+Create a git commit with message: $ARGUMENTS
+
+Follow conventional commit format. If no message provided, generate one based on the changes.
+```
+
+## Version History
+
+- Based on Claude Code documentation as of 2025-12
