@@ -7,7 +7,9 @@
       "Bash(find:*)",
       "Bash(/Users/est8/scripts/agent-tool/agent-tool.sh cfg refresh:*)",
       "WebSearch",
-      "WebFetch(domain:docs.claude.com)"
+      "WebFetch(domain:docs.claude.com)",
+      "Bash(/Volumes/other/JetbrainsProjects/agent-tool/agent-tool.sh cfg refresh:*)",
+      "Bash(~/.claude/skills/sayhello/scripts/run.sh)"
     ]
   }
 }
