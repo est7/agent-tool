@@ -244,6 +244,9 @@ $AGENT_HOME
 │   ├── claude-only/          # 仅 Claude 使用的命令
 │   ├── codex-only/           # 仅 Codex 使用的命令
 │   └── gemini-only/          # 仅 Gemini 使用的命令/说明
+├── output-styles/
+│   ├── shared/               # 通用输出风格（Claude/Codex 等可共享）
+│   └── claude-only/          # 仅 Claude 使用的输出风格
 ├── mcp/
 │   ├── claude.json.snippet   # Claude 用的 .mcp.json 片段（不含密钥）
 │   ├── gemini.json.snippet   # Gemini 用的 settings.json 片段（不含密钥）
@@ -267,6 +270,7 @@ $AGENT_HOME
   * `~/.claude/CLAUDE.md -> $AGENT_HOME/AGENTS.md`
   * `~/.claude/commands/* -> $AGENT_HOME/commands/{shared,claude-only}`
   * `~/.claude/skills/*   -> $AGENT_HOME/skills/{shared,claude-only}`
+  * `~/.claude/output-styles/* -> $AGENT_HOME/output-styles/{shared,claude-only}`
   * `~/.codex/prompts/*   -> $AGENT_HOME/commands/{shared,codex-only}`
   * `~/.codex/skills/*    -> $AGENT_HOME/skills/{shared,codex-only}`
   * `~/.codex/AGENTS.md   -> $AGENT_HOME/AGENTS.md`
@@ -365,6 +369,9 @@ EOF
 ensure_dir "${AGENT_HOME}/skills/shared"
 ensure_dir "${AGENT_HOME}/skills/claude-only"
 ensure_dir "${AGENT_HOME}/skills/codex-only"
+
+ensure_dir "${AGENT_HOME}/output-styles/shared"
+ensure_dir "${AGENT_HOME}/output-styles/claude-only"
 
 ensure_dir "${AGENT_HOME}/commands/shared"
 ensure_dir "${AGENT_HOME}/commands/claude-only"
@@ -666,6 +673,14 @@ fi
 link_dir_contents "${AGENT_HOME}/skills/shared" "$claude_home/skills"
 link_dir_contents "${AGENT_HOME}/skills/claude-only" "$claude_home/skills"
 
+# Output styles: shared + claude-only
+
+if ! $DRY_RUN; then
+mkdir -p "$claude_home/output-styles"
+fi
+link_dir_contents "${AGENT_HOME}/output-styles/shared" "$claude_home/output-styles"
+link_dir_contents "${AGENT_HOME}/output-styles/claude-only" "$claude_home/output-styles"
+
 # Hooks: Claude-only
 if ! $DRY_RUN; then
   mkdir -p "$claude_home/hooks"
@@ -802,6 +817,7 @@ done
 # 目录内部指向 AGENT_HOME 的软链接
 
 remove_links_pointing_to_ai "${HOME}/.claude/commands"
+remove_links_pointing_to_ai "${HOME}/.claude/output-styles"
 remove_links_pointing_to_ai "${HOME}/.claude/skills"
 remove_links_pointing_to_ai "${HOME}/.codex/prompts"
 remove_links_pointing_to_ai "${HOME}/.codex/skills"
