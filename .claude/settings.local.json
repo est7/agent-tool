@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/Users/est8/scripts/agent-tool/cfg/templates/skills/sayhello/scripts/run.sh:*)",
+      "Bash(bash:*)"
+    ]
+  }
+}

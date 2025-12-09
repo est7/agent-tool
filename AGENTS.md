@@ -1,33 +1,44 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-- This repository is a small Bash-based tool; the main entrypoint is `agent-tool.sh` in the repo root.
-- The script is designed to be run from inside any Git repo and creates per-task agent workspaces under `<parent>/<repo-name>-agents/` (for example `~/Projects/my-app-agents/`).
-- If you add more utilities, keep them in this directory and prefer small, single-purpose scripts.
+## Project Structure & Modules
 
-## Build, Test, and Development Commands
-- `./agent-tool.sh create [--base-branch <branch>] <type> <scope>` – create an agent workspace and branch `agent/<type>/<scope>` based on the chosen baseline.
-- `./agent-tool.sh cleanup <type> <scope>` – delete the corresponding agent workspace directory only.
-- `./agent-tool.sh list` – list all detected agent workspaces with metadata from `.agent-meta.yml`.
-- `./agent-tool.sh status` – show a short `git status` for each agent workspace.
-- `bash -n agent-tool.sh` – syntax check the script; run before committing.
-- `shellcheck agent-tool.sh` – static analysis (if installed); fix warnings where practical.
+- Root: `agent-tool.sh` is the main Bash CLI entry point.
+- `cfg/`: shared configuration utilities (aliases, symlink installer, MCP templates).
+- `ws/`: Agent workspace lifecycle (`create/cleanup/list/status`).
+- `build/`, `test/`, `doctor/`, `dev/`: platform build/test, environment checks, and future dev workflows.
+- `agents-guidelines.md`: Git workflow and multi‑clone rules; follow it when working in Agent workspaces.
+- For future automated tests of this repo, use a top‑level `tests/` directory (see `test/README.md`).
 
-## Coding Style & Naming Conventions
-- Target Bash (`#!/usr/bin/env bash`) with `set -euo pipefail` at the top of every script.
-- Use two-space indentation, long, descriptive English names for functions (e.g., `create_agent_repo`) and UPPER_SNAKE_CASE for variables.
-- Keep user-facing messages in Chinese for consistency with the existing script; prefer clear, actionable error text.
-- Avoid unnecessary external dependencies; rely on `git` and standard Unix tools only.
+## Agent Templates & Specs
+
+- Templates live in `cfg/templates/` (`commands/`, `hooks/`, `mcp/`, `skills/`).
+- When creating or editing a template, read the matching spec in `cfg/templates/spec/agent-*-spec.md` (for example, `agent-skills-spec.md` for skills).
+- Make sure `SKILL.md` / command / hook / MCP definitions follow the required frontmatter, layout, and naming rules defined in their spec.
+
+## Build, Test & Development Commands
+
+- General help: `./agent-tool.sh help` or `./agent-tool.sh help <group>`.
+- Build/run current project: `./agent-tool.sh build <platform> [--run] [-- <args...>]`.
+- Project tests (per target repo): `./agent-tool.sh test <platform> <kind> [-- <args...>]`.
+- Environment and CLI checks: `./agent-tool.sh doctor <platform|cli>`.
+- Local script hygiene for this repo: `bash -n agent-tool.sh` and optionally `shellcheck agent-tool.sh` and module scripts.
+
+## Coding Style & Naming
+
+- Language: Bash only (`#!/usr/bin/env bash`, `set -euo pipefail` at top of new scripts).
+- Indentation: 2 spaces, no hard tabs; keep functions small and composable.
+- Functions: `lower_snake_case` (for example, `create_agent_repo`); variables: UPPER_SNAKE for constants, lower_snake for locals.
+- Errors: use `agent_error "E_DOMAIN_MEANING" "message"` and follow the `E_<域>_<含义>` pattern described in `README.md`.
 
 ## Testing Guidelines
-- For changes that affect behavior, exercise the script against a real Git repo and verify `create`, `cleanup`, `list`, and `status` flows.
-- If you introduce automated tests, place them under a `tests/` directory as `test_*.sh` and ensure they can be run with a single command (e.g., `./tests/run.sh`).
-- Always run `bash -n` and, where available, `shellcheck` before opening a PR.
+
+- Prefer Bats or similar for new shell tests, placing them under `tests/` with descriptive filenames (for example, `tests/agent_tool_ws.bats`).
+- For lightweight smoke tests, use `./agent-tool.sh doctor cli` plus targeted `bash -n`/`shellcheck` on changed scripts.
+- When adding platform behaviour, document expected `agent-tool.sh test ...` usage and add at least one happy‑path test per code path.
 
 ## Commit & Pull Request Guidelines
-- Use Conventional Commit prefixes where possible: `feat:`, `fix:`, `refactor:`, `chore:`, `test:`.
-- Keep `type` and `scope` arguments consistent with the script’s contract: `type` in `{feat, bugfix, refactor, chore, exp}`, `scope` in kebab-case (e.g., `user-profile-header`).
-- PRs should state motivation, key behavior changes, how you tested (commands used), and any risks or migration notes.
 
-## Agent-Specific Notes
-- Preserve the core workflow: default to the current branch as baseline unless `--base-branch` is explicitly provided, and avoid baking project-specific paths into the tool.
+- Commits follow a simple `type: message` format, where `type` is one of `feat|bugfix|refactor|chore|exp` (for example, `feat: add web build helper`).
+- Keep commits focused and incremental; prefer smaller, reviewable changes over large mixed refactors.
+- Pull requests should include: brief summary, motivation/context, key commands used for validation, and any screenshots or logs when behaviour changes.
+- Link related issues or tasks where applicable, and mention any follow‑up work (TODOs) in the PR description.

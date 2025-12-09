@@ -54,7 +54,7 @@ cfg 子命令:
 
 ws 子命令（ws 前缀等价于旧的直接命令）:
   ws create [--base-branch <branch>] <type> <scope>
-  ws cleanup --force <type> <scope>   # 危险: 删除 agent workspace 目录
+  ws cleanup [--force] <type> <scope> # 默认交互确认；--force 为非交互危险删除
   ws list
   ws status
 
@@ -75,7 +75,7 @@ build 子命令:
 run 子命令:
   run <platform> [-- <args...>]
 
-  说明: 等价于 build <platform> --run [-- <args...>]
+  说明: 等价于 **build <platform> --run [-- <args...>]**，用于直接以运行模式调用预置构建流程。
 
 doctor 子命令:
   doctor <platform>   # 检查当前仓库针对平台的构建环境 (android | ios | web)
@@ -105,6 +105,11 @@ doctor 子命令:
 EOF
 }
 
+is_help_flag() {
+  local arg="${1:-}"
+  [[ "${arg}" == "-h" || "${arg}" == "--help" ]]
+}
+
 help_command() {
   local group="${1:-}"
   case "${group}" in
@@ -125,7 +130,7 @@ EOF
     cat <<EOF
 workspace 子命令 (仅通过 ws 分组使用):
   ws create [--base-branch <branch>] <type> <scope>
-  ws cleanup --force <type> <scope>   # 危险: 删除 agent workspace 目录
+  ws cleanup [--force] <type> <scope> # 默认交互确认；--force 为非交互危险删除
   ws list
   ws status
 EOF
@@ -239,6 +244,7 @@ SCOPE=""
 BRANCH=""
 AGENT_DIR_NAME=""
 AGENT_DIR=""
+CLEANUP_FORCE=0
 BUILD_PLATFORM=""
 BUILD_SHOULD_RUN=0
 BUILD_ARGS=()
@@ -264,7 +270,7 @@ if [[ "${COMMAND}" == "ws" ]]; then
   if [[ $# -lt 1 ]]; then
     help_command ws
   fi
-  if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+  if is_help_flag "${1:-}"; then
     help_command ws
   fi
   COMMAND="$1"
@@ -305,7 +311,7 @@ cfg_command() {
   local sub="${1:-}"
 
   # 无子命令或显式 -h/--help 时展示 cfg 帮助
-  if [[ -z "${sub}" || "${sub}" == "-h" || "${sub}" == "--help" ]]; then
+  if [[ -z "${sub}" ]] || is_help_flag "${sub}"; then
     help_command cfg
   fi
 
@@ -347,6 +353,11 @@ if [[ "${COMMAND}" == "cfg" ]]; then
 fi
 
 # 计算仓库路径相关变量（仅 ws/build/run/doctor/test 需要）
+if ! command -v git >/dev/null 2>&1; then
+  agent_error "E_GIT_MISSING" "未找到 git 命令，请安装 git 并确保其在 PATH 中。"
+  exit 1
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -z "${REPO_ROOT}" ]]; then
   agent_error "E_NOT_GIT_REPO" "当前目录不在一个 Git 仓库中，请在主仓内部执行此脚本。"
@@ -366,7 +377,7 @@ test_command() {
   shift # 去掉 "test"
 
   # 无参数或显式 -h/--help 时进入 test 帮助
-  if [[ $# -lt 1 || "$1" == "-h" || "$1" == "--help" ]]; then
+  if [[ $# -lt 1 ]] || is_help_flag "$1"; then
     help_command test
   fi
 
@@ -440,12 +451,11 @@ if [[ "${COMMAND}" == "create" ]]; then
 elif [[ "${COMMAND}" == "cleanup" ]]; then
   shift # 去掉 cleanup
 
-  if [[ "${1:-}" != "--force" ]]; then
-    agent_error "E_FORCE_REQUIRED" "ws cleanup 为危险操作，请使用: $0 ws cleanup --force <type> <scope>"
-    exit 1
+  CLEANUP_FORCE=0
+  if [[ "${1:-}" == "--force" ]]; then
+    CLEANUP_FORCE=1
+    shift
   fi
-
-  shift # 去掉 --force
 
   if [[ $# -lt 2 ]]; then
     agent_error "E_ARG_MISSING" "ws cleanup 需要 <type> <scope>。"
@@ -459,7 +469,7 @@ elif [[ "${COMMAND}" == "build" ]]; then
   shift # 去掉 build
 
   # 无平台参数或显式 -h/--help 时进入 build 帮助模式
-  if [[ $# -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
+  if [[ $# -eq 0 ]] || is_help_flag "$1"; then
     help_command build
   fi
 
@@ -492,7 +502,7 @@ elif [[ "${COMMAND}" == "run" ]]; then
   BUILD_SHOULD_RUN=1
 
   # 无平台参数或显式 -h/--help 时进入 run 帮助模式
-  if [[ $# -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
+  if [[ $# -eq 0 ]] || is_help_flag "$1"; then
     help_command run
   fi
 
@@ -518,7 +528,7 @@ elif [[ "${COMMAND}" == "doctor" ]]; then
   shift # 去掉 doctor
 
   # 无参数或显式 -h/--help 时进入 doctor 帮助模式
-  if [[ $# -lt 1 || "$1" == "-h" || "$1" == "--help" ]]; then
+  if [[ $# -lt 1 ]] || is_help_flag "$1"; then
     help_command doctor
   fi
 
@@ -557,7 +567,7 @@ fi
 
 case "${COMMAND}" in
 create)
-  create_agent_repo
+  create_agent_repo "${REPO_ROOT}" "${AGENT_ROOT}" "${TYPE}" "${SCOPE}" "${BRANCH}" "${AGENT_DIR_NAME}" "${AGENT_DIR}" "${BASE_BRANCH_NAME:-}"
   ;;
 cleanup)
   cleanup_agent_repo

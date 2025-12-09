@@ -47,7 +47,7 @@
   - `cfg mcp [options]`: 在项目根生成项目级 MCP 配置（透传选项到 `project_mcp_setup.sh`）
  - `ws` 子命令:
   - `ws create [--base-branch <branch>] <type> <scope>`
-  - `ws cleanup --force <type> <scope>`   # 危险: 删除 agent workspace 目录
+  - `ws cleanup [--force] <type> <scope>` # 默认交互确认；--force 为非交互危险删除
   - `ws list`
   - `ws status`
 
@@ -171,6 +171,12 @@ kind:
 7. 需求完成后，清理对应的 Agent workspace（在主仓根目录执行）：
 
    ```bash
+   ./agent-tool.sh ws cleanup feat user-profile-header
+   ```
+
+   如需在脚本/CI 中非交互清理，可使用：
+
+   ```bash
    ./agent-tool.sh ws cleanup --force feat user-profile-header
    ```
 
@@ -260,7 +266,7 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 
 用途: 快速检查当前仓库是否已经为指定平台准备好必要的工程结构与关键工具链。  
 仅输入 `./agent-tool.sh doctor` 或加 `-h/--help` 会输出 doctor 子命令帮助。
-额外检查: 自动调用 `doctor/cfg_doctor.sh` 执行统一配置目录（AI_HOME）软链与目录自检。
+额外检查: 自动调用 `doctor/cfg_doctor.sh` 执行统一配置目录（AGENT_HOME）软链与目录自检。
 
 检查内容 (不会修改任何文件, 仅输出信息):
 
@@ -310,7 +316,46 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 
 - 语法检查: `bash -n agent-tool.sh`
 - 静态分析 (可选): `shellcheck agent-tool.sh`
-- CLI 自检: `./agent-tool.sh doctor cli`（对核心脚本执行一次 `bash -n`）
+- CLI 自检: `./agent-tool.sh doctor cli`（对核心脚本执行一次 `bash -n`，包括 `cfg/aliases.d/*.sh`）
+
+## 错误码约定
+
+所有错误码均通过 `agent_error "<CODE>" "<message>"` 输出，便于人类与脚本/AI 统一解析。
+
+- 命名规则: `E_<域>_<含义>`，例如:
+  - `E_GIT_MISSING`：环境缺失类错误（缺少 git）
+  - `E_ANDROID_GRADLEW_MISSING`：平台工具缺失（缺少 `./gradlew`）
+  - `E_BUILD_CONFIG`：配置不完整或缺失（如 `.agent-build.yml` 中未设置必须字段）
+  - `E_INTERNAL`：内部逻辑错误（通常表示 bug，应该修脚本而不是改调用方式）
+
+常见错误码示例（部分）:
+
+- Git / Workspace 相关
+  - `E_GIT_MISSING`：未找到 `git` 命令，需先安装 git 并确保在 PATH 中。
+  - `E_NOT_GIT_REPO`：当前目录不在任何 Git 仓库内，需要在主仓根目录或其子目录调用 `agent-tool.sh`。
+  - `E_AGENT_ROOT_INVALID`：`AGENT_ROOT` 或 `AGENT_DIR` 不合法（为空、为根目录、或不在 `AGENT_ROOT` 下等），为避免误删会拒绝执行 `ws cleanup`。
+- 参数与配置相关
+  - `E_ARG_MISSING`：缺少必要参数，例如未提供 `<type>/<scope>` 或 `<platform>/<kind>`。
+  - `E_ARG_INVALID`：参数值不在支持列表中，例如未知的 `type` 或 `platform`。
+  - `E_BUILD_CONFIG`：构建相关配置不完整，例如未提供 Android 包名或 iOS scheme，且 `.agent-build.yml` 也未补全。
+  - `E_TEST_CONFIG`：测试相关配置不完整，例如 iOS 测试中未提供 scheme 且 `.agent-build.yml` 中缺少 `ios_scheme`。
+- 平台环境相关
+  - `E_ANDROID_GRADLEW_MISSING`：当前仓库根目录缺少 `./gradlew`。
+  - `E_ANDROID_ADB_MISSING`：`adb` 不可用，无法在 `--run` 模式下安装/启动应用。
+  - `E_ANDROID_DEVICE_MISSING`：未检测到任何已连接的设备/模拟器。
+  - `E_IOS_TUIST_MISSING` / `E_IOS_XCODEBUILD_MISSING`：缺少 `tuist` 或 `xcodebuild`。
+  - `E_WEB_PACKAGE_JSON_MISSING`：当前目录不存在 `package.json`，不被视为 Web 工程根目录。
+  - `E_WEB_PM_MISSING`：未找到 `pnpm`/`yarn`/`npm` 任意一个包管理器。
+- 自检相关
+  - `E_TEST_FILE_MISSING`：`doctor cli` 期望存在的脚本文件缺失。
+  - `E_TEST_BASH_N`：对某个脚本执行 `bash -n` 语法检查失败。
+  - `E_TEST_FAILED`：`doctor cli` 总体自检失败（至少一个子检查失败）。
+
+整体约定:
+
+- 若错误属于「调用方式或配置问题」，会尽量给出下一步建议（需要补哪些参数/字段）。  
+- 若错误属于「环境问题」，会指明缺少哪个工具/文件及安装方向。  
+- 若出现 `E_INTERNAL`，一般表示脚本本身需要修复，建议先跑一次 `doctor cli` 并查看 issue/TODO。  
 
 ## 全局配置文件 (~/.agent-tool/config)
 
@@ -324,7 +369,7 @@ AGENT_ROOT="$HOME/Agents"
 DEFAULT_BASE_BRANCH="dev"
 
 # 统一配置目录（cfg/install_symlinks.sh 和 doctor/cfg_doctor.sh 会读取）
-AI_HOME="$HOME/.agents"
+AGENT_HOME="$HOME/.agents"
 ```
 
 注意:
@@ -343,17 +388,18 @@ AI_HOME="$HOME/.agents"
   - 计算 `REPO_ROOT` / `AGENT_ROOT` / `BRANCH` 等公共变量
   - 读取 `.agent-build.yml`, 并按平台分发到对应的构建/自检逻辑
   - 将 `ws/` / `build/` / `doctor/` 等子模块加载进来
-- `ws/workspace.sh`  
+  - `ws/workspace.sh`  
   Agent 工作空间相关逻辑:
   - `create_agent_repo` / `cleanup_agent_repo` / `list_agents` / `status_agents`
   - 创建/删除 Agent 仓库目录, 初始化 submodules, 创建分支, 生成 `.agent-meta.yml` 与 `README_AGENT.md`
+  - 对 `ws cleanup` 的删除操作增加了路径安全保护, 仅允许删除位于 `AGENT_ROOT` 下且合法的 Agent 仓库目录, 并在非 `--force` 模式下要求交互确认。
 - `build/platforms.sh`  
   平台构建与运行逻辑:
   - `build_agent_project` 统一入口
   - `build_android_project` / `build_ios_project` / `build_web_project`
   - `maybe_fill_build_args_from_config` 读取 `.agent-build.yml` 补全默认参数
 - `doctor/` 目录  
-  - `doctor/cfg_doctor.sh`：检查统一配置目录（AI_HOME）与软链状态
+  - `doctor/cfg_doctor.sh`：检查统一配置目录（AGENT_HOME）与软链状态
   - `doctor/platforms.sh`：针对 Android / iOS / Web 的构建环境自检 (`doctor_*_environment` + `doctor_agent_environment`)
 - `cfg/` 目录  
   - `cfg/install_symlinks.sh`：初始化/刷新软链

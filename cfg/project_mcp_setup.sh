@@ -5,7 +5,7 @@ set -euo pipefail
 # ~/scripts/agent-tool/cfg/project_mcp_setup.sh
 #
 # 用途：
-#   在「项目根目录」下运行，用统一配置目录（AI_HOME）下的 mcp snippet 生成项目级 MCP 配置：
+#   在「项目根目录」下运行，用统一配置目录（AGENT_HOME）下的 mcp snippet 生成项目级 MCP 配置：
 #
 #     Claude Code : .mcp.json
 #     Gemini CLI  : .gemini/settings.json
@@ -16,7 +16,7 @@ set -euo pipefail
 #   - MCP 行为主要由项目内文件控制，可进 Git 管理
 # ═══════════════════════════════════════════════════════════════════════════════
 
-AI_HOME="${AI_HOME:-${HOME}/.agents}"
+AGENT_HOME="${AGENT_HOME:-${HOME}/.agents}"
 PROJECT_ROOT="${PWD}"
 
 # 颜色
@@ -45,7 +45,7 @@ usage() {
 
 说明:
   在【项目根目录】中运行本脚本。
-  它会基于 $AI_HOME/mcp 下的 snippet 生成项目级的 MCP 配置文件：
+  它会基于 $AGENT_HOME/mcp 下的 snippet 生成项目级的 MCP 配置文件：
 
     Claude : .mcp.json
     Gemini : .gemini/settings.json
@@ -60,7 +60,7 @@ usage() {
   -h, --help      显示本帮助信息
 
 环境变量:
-  AI_HOME         统一配置仓库路径 (默认: ~/.agents)
+  AGENT_HOME      统一配置仓库路径 (默认: ~/.agents)
 
 提示:
   • Codex: 需要在项目中把 CODEX_HOME 指向 ./.codex
@@ -84,11 +84,11 @@ ensure_dir() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Claude: .mcp.json ← $AI_HOME/mcp/claude.json.snippet
+# Claude: .mcp.json ← $AGENT_HOME/mcp/claude.json.snippet
 # ─────────────────────────────────────────────────────────────────────────────
 
 setup_claude_project_mcp() {
-  local snippet="${AI_HOME}/mcp/claude.json.snippet"
+  local snippet="${AGENT_HOME}/mcp/claude.json.snippet"
   local target="${PROJECT_ROOT}/.mcp.json"
 
   log_info "配置 Claude 项目级 MCP (.mcp.json)…"
@@ -100,7 +100,7 @@ setup_claude_project_mcp() {
 
   if [[ -f "$target" ]]; then
     log_warn "项目中已存在 .mcp.json，保持不变: $target"
-    log_warn "→ 如果你想统一使用 $AI_HOME 的定义，可以手动用 jq merge 或直接覆盖。"
+    log_warn "→ 如果你想统一使用 $AGENT_HOME 的定义，可以手动用 jq merge 或直接覆盖。"
     return 0
   fi
 
@@ -115,11 +115,11 @@ setup_claude_project_mcp() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Gemini: .gemini/settings.json ← $AI_HOME/mcp/gemini.json.snippet
+# Gemini: .gemini/settings.json ← $AGENT_HOME/mcp/gemini.json.snippet
 # ─────────────────────────────────────────────────────────────────────────────
 
 setup_gemini_project_mcp() {
-  local snippet="${AI_HOME}/mcp/gemini.json.snippet"
+  local snippet="${AGENT_HOME}/mcp/gemini.json.snippet"
   local dir="${PROJECT_ROOT}/.gemini"
   local target="${dir}/settings.json"
 
@@ -150,14 +150,14 @@ setup_gemini_project_mcp() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Codex: .codex/config.toml ← $AI_HOME/mcp/codex.toml.snippet
+# Codex: .codex/config.toml ← $AGENT_HOME/mcp/codex.toml.snippet
 # ─────────────────────────────────────────────────────────────────────────────
 
 setup_codex_project_mcp() {
-  local snippet="${AI_HOME}/mcp/codex.toml.snippet"
+  local snippet="${AGENT_HOME}/mcp/codex.toml.snippet"
   local dir="${PROJECT_ROOT}/.codex"
   local target="${dir}/config.toml"
-  local marker="# BEGIN AI_HOME MCP snippet"
+  local marker="# BEGIN AGENT_HOME MCP snippet"
 
   log_info "配置 Codex 项目级 MCP (.codex/config.toml)…"
 
@@ -171,7 +171,7 @@ setup_codex_project_mcp() {
   if $DRY_RUN; then
     if [[ -f "$target" ]]; then
       if grep -Fq "$marker" "$target"; then
-        log_verbose "config.toml 中已经存在 AI_HOME MCP snippet 标记: $target"
+        log_verbose "config.toml 中已经存在 AGENT_HOME MCP snippet 标记: $target"
       else
         log_verbose "将把 $snippet 追加到 $target（带标记）"
       fi
@@ -185,18 +185,18 @@ setup_codex_project_mcp() {
     {
       echo "$marker"
       cat "$snippet"
-      echo "# END AI_HOME MCP snippet"
+      echo "# END AGENT_HOME MCP snippet"
     } > "$target"
     log_verbose "已创建 $target 并写入 MCP snippet"
   else
     if grep -Fq "$marker" "$target"; then
-      log_verbose "$target 中已存在 AI_HOME MCP snippet 标记，跳过追加"
+      log_verbose "$target 中已存在 AGENT_HOME MCP snippet 标记，跳过追加"
     else
       {
         echo ""
         echo "$marker"
         cat "$snippet"
-        echo "# END AI_HOME MCP snippet"
+        echo "# END AGENT_HOME MCP snippet"
       } >> "$target"
       log_verbose "已将 MCP snippet 从 $snippet 追加到 $target"
     fi
@@ -236,13 +236,13 @@ main() {
     DO_CODEX=true
   fi
 
-  if [[ ! -d "$AI_HOME" ]]; then
-    log_error "AI_HOME 不存在: $AI_HOME"
-    log_error "请先将你的配置仓库放到该路径，或设置 AI_HOME 环境变量。"
+  if [[ ! -d "$AGENT_HOME" ]]; then
+    log_error "AGENT_HOME 不存在: $AGENT_HOME"
+    log_error "请先将你的配置仓库放到该路径，或设置 AGENT_HOME 环境变量。"
     exit 1
   fi
 
-  log_info "AI_HOME:      $AI_HOME"
+  log_info "AGENT_HOME:   $AGENT_HOME"
   log_info "PROJECT_ROOT: $PROJECT_ROOT"
   $DRY_RUN && log_warn "Dry-run 模式 - 不会进行任何实际写入。"
 

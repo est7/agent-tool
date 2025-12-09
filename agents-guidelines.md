@@ -1,217 +1,200 @@
-# Agent 开发指南（多 submodule 并行开发）
+# Agent 开发全流程指南
 
-本文件约定 Codex / 代码 Agent 在本仓库中开发 feature 时的 Git 使用方式，目标：
+本文件描述从「任务创建（CTG/Issue）」到「通过 `ws` 创建 Agent 副本、初始化 MCP、开发/测试/构建/运行，再到发布与清理」的完整工作流，适用于人类与代码 Agent 协同开发。
 
-- 通过“主仓 1 个 + 多个 agent clone”实现并行开发；
-- 每个 agent 在自己的 clone + 分支里独立工作；
-- 多层 Git submodule 下避免互相踩工作区、避免破坏仓库结构。
+目标：
+- 主仓 1 个，多 Agent clone 并行开发；
+- 每个任务在独立分支 + 独立 clone 中进行；
+- 在多层 Git submodule 场景下避免互相踩工作区、避免误删目录。
 
 ---
 
-## 1. 目录结构与命名规范
+## 1. 目录结构与命名
 
-### 1.1 顶层目录布局
+顶层目录约定：
 
 ```text
 <parent-dir>/
   ├─ <repo-name>/                         # 主开发仓库（人类日常开发）
-  └─ <repo-name>-agents/                  # 所有 Agent 专用 clone 放在这里
+  └─ <repo-name>-agents/                  # 所有 Agent 专用 clone 由 ws 管理
        ├─ <repo-name>-agent-feat-user-profile-header/
        ├─ <repo-name>-agent-bugfix-payment-api-timeout/
        └─ ...
+```
 
 约束：
-	•	不在主仓目录内部再创建新的 Git 仓库（除正式配置的 submodule 外）。
-	•	所有 Agent clone 必须放在 <repo-name>-agents/ 目录下，由脚本统一创建。
+- 不在主仓目录内部再创建新的 Git 仓库（除正式配置的 submodule 外）。
+- 所有 Agent clone 必须放在 `<repo-name>-agents/` 目录下，由 `agent-tool.sh ws` 创建和清理。
 
-1.2 任务类型与命名规则
-	•	type（任务类型）：
-	•	feat / bugfix / refactor / chore / exp
-	•	scope（任务范围）：
-	•	简短 kebab-case，如：user-profile-header, payment-api-timeout
-	•	分支命名（父仓 & 子仓统一）：
-	•	agent/<type>/<scope>
-	•	例如：agent/feat/user-profile-header
-	•	Agent 目录命名：
-	•	<repo-name>-agent-<type>-<scope>/
-	•	例如：<repo-name>-agent-feat-user-profile-header/
+任务与分支命名：
+- `type`（任务类型）：`feat | bugfix | refactor | chore | exp`
+- `scope`（任务范围）：简短 kebab-case，例如 `user-profile-header`、`payment-api-timeout`
+- 分支：`agent/<type>/<scope>`（主仓 & Agent 仓统一）
+- Agent 目录：`<repo-name>-agent-<type>-<scope>/`
 
-⸻
+---
 
-2. 使用 agent-tool.sh 管理 Agent 环境
+## 2. 从 CTG/Issue 到 Agent Workspace
 
-脚本位置（主仓内）：
+1. 在 CTG/任务系统中确认本次任务的：
+   - 任务类型：映射为 `type`
+   - 范围/关键词：整理为 `scope`（kebab-case）
+2. 在主仓根目录（`<repo-name>/`）拉取最新基线分支，例如：
+   - `git checkout dev` 或 `git checkout main`
+   - `git pull`
+3. 使用 `ws create` 创建 Agent 副本与分支：
 
-<repo-root>/
-  ├─ scripts/
-  │    └─ agent-tool.sh
-  └─ AGENTS.md
+```bash
+./agent-tool.sh ws create [--base-branch dev] <type> <scope>
+```
 
-2.1 创建 Agent 环境：ws create
+效果：
+- 在 `<parent-dir>/<repo-name>-agents/` 下创建对应 Agent 仓；
+- 为主仓和 Agent 仓各自创建/切换到 `agent/<type>/<scope>` 分支；
+- 写入 `.agent-meta.yml` 记录任务元信息。
 
-在主仓根目录内部执行：
+---
 
-cd /path/to/your/repo
+## 3. 在 Agent 仓内初始化 MCP 与工具
 
-# 默认：以当前主仓所在分支为基线（或使用全局配置 DEFAULT_BASE_BRANCH）
-./scripts/agent-tool.sh ws create <type> <scope>
+进入新建的 Agent 仓目录（示例）：
 
-# 显式：以指定分支为基线（如 dev/main/release/*）
-./scripts/agent-tool.sh ws create --base-branch dev <type> <scope>
+```bash
+cd ../<repo-name>-agents/<repo-name>-agent-<type>-<scope>/
+```
 
-示例：
+推荐初始化步骤：
 
-# 假设当前在分支 feature/homepage 上
-./scripts/agent-tool.sh ws create feat user-profile-header
-# => Agent 父仓分支基于 feature/homepage 创建 agent/feat/user-profile-header
-# => submodule 也优先尝试基于 feature/homepage 创建/切换 agent/feat/user-profile-header
+1. 若是首次在该机器使用 agent-tool，全局初始化统一配置目录：
 
-# 若希望强制基于 dev 分支：
-./scripts/agent-tool.sh ws create --base-branch dev feat user-profile-header
-# => Agent 父仓分支基于 dev 创建 agent/feat/user-profile-header
-# => submodule 也优先尝试基于 dev 创建/切换 agent/feat/user-profile-header
+```bash
+./agent-tool.sh cfg init
+```
 
-基线选择规则：
-	•	默认（未指定 --base-branch）：
-	•	若配置文件 (~/.agent-tool/config) 中定义 DEFAULT_BASE_BRANCH，则优先使用该分支作为基线；
-	•	否则读取当前主仓分支 CURRENT_BRANCH；
-	•	父仓：
-	•	优先 origin/<基线分支>；
-	•	否则本地 <基线分支>；
-	•	都不存在则回退 HEAD。
-	•	submodule：
-	•	优先 origin/<基线分支>；
-	•	否则本地 <基线分支>；
-	•	若不存在该分支，则保持子仓当前分支/commit 不变。
-	•	显式指定 --base-branch <branch>：
-	•	父仓：
-	•	优先 origin/<branch>；
-	•	否则本地 <branch>；
-	•	都不存在则回退 HEAD。
-	•	submodule：
-	•	优先 origin/<branch>；
-	•	否则本地 <branch>；
-	•	若不存在该分支，则保持子仓当前分支/commit 不变。
+2. 为当前项目生成 MCP 配置（按实际使用的提供方选择参数）：
 
-创建流程自动完成：
-	1.	在 <parent-dir>/<repo-name>-agents/ 下创建独立 Agent 仓库；
-	2.	运行 agent_clone.sh 初始化可访问的 submodule（对 invalid alternate 使用 submodule.alternateErrorStrategy=info）；
-	3.	在 Agent 父仓中基于选定基线分支创建并切换到 agent/<type>/<scope>；
-	4.	对所有已初始化且可访问的 submodule：
-	•	若存在与基线同名分支（远端或本地），基于该分支创建/切换 agent/<type>/<scope>；
-	•	否则保持当前状态并打印提示；
-	5.	在 Agent 根目录生成：
-	•	.agent-meta.yml（包含 type/scope/branch/base_branch/created_at/...）
-	•	README_AGENT.md。
+```bash
+./agent-tool.sh cfg mcp -v --codex       # 或 --claude / --gemini 等
+```
 
-2.2 清理 Agent 环境：ws cleanup --force
+3. 可选：对 CLI 自身做一次自检，确保脚本语法与软链正常：
 
-仅删除本地 Agent 仓库目录，不修改远端分支：
+```bash
+./agent-tool.sh doctor cli
+```
 
-cd /path/to/your/repo
-./scripts/agent-tool.sh ws cleanup --force <type> <scope>
+---
 
-示例：
+## 4. 开发与本地验证（test / build / run）
 
-./scripts/agent-tool.sh ws cleanup --force feat user-profile-header
+在 Agent 仓内进行日常开发（编辑代码、提交 commit），并通过统一入口运行测试与构建：
 
-删除：
+- 项目级单元测试：
 
-<parent-dir>/<repo-name>-agents/<repo-name>-agent-feat-user-profile-header/
+```bash
+./agent-tool.sh test <platform> unit
+```
 
-2.3 列出所有 Agent 仓库：ws list
+- 覆盖率任务：
 
-cd /path/to/your/repo
-./scripts/agent-tool.sh ws list
+```bash
+./agent-tool.sh test <platform> coverage
+```
 
-输出示例：
+- 构建当前项目：
 
-==> Agent 根目录: /Users/you/Projects/my-app-agents
+```bash
+./agent-tool.sh build <platform> [--run] [-- <args...>]
+```
 
-DIR                                      TYPE     SCOPE                          BASE_BRANCH          CREATED_AT           BRANCH
----------------------------------------- -------- ------------------------------ -------------------- -------------------- ------------------------------
-my-app-agent-feat-user-profile-header    feat     user-profile-header           feature/homepage     2025-11-26T06:30:00Z agent/feat/user-profile-header
-...
+- 便捷运行（等价于 `build <platform> --run`）：
 
-数据来自每个 Agent 根目录的 .agent-meta.yml。
+```bash
+./agent-tool.sh run <platform> [-- <args...>]
+```
 
-2.4 查看 Agent 仓库状态：ws status
+说明：
+- `platform` 为 `android | ios | web`，具体行为见根目录 `README.md`。
+- 可在目标项目根目录配置 `.agent-build.yml`，减少重复传参（包名、scheme、变体等）。
 
-cd /path/to/your/repo
-./scripts/agent-tool.sh ws status
+推荐顺序：
+1. 频繁跑 `test unit` 做快速反馈；
+2. 重要改动前后跑一次 `test coverage` 或平台自带覆盖率；
+3. 通过 `build`/`run` 验证可构建、可运行；
+4. 有环境问题时优先用 `./agent-tool.sh doctor <platform>` 排查。
 
-示例：
+---
 
-==> Agent 根目录: /Users/you/Projects/my-app-agents
+## 5. 提交、发布与清理
 
-==> my-app-agent-feat-user-profile-header (agent/feat/user-profile-header) [base:feature/homepage]
-  M app/src/...
-  M common/...
+在 Agent 仓内：
+- 使用约定格式编写 commit message，例如：`feat: add web build helper`
+- 确保所有相关测试通过、`doctor cli` 无错误。
 
-==> my-app-agent-bugfix-payment-api-timeout (agent/bugfix/payment-api-timeout) [base:dev]
-  工作区干净
+在主仓根目录：
+1. 确认本地分支 `agent/<type>/<scope>` 与远程同步：
 
+```bash
+git push -u origin agent/<type>/<scope>
+```
 
-⸻
+2. 在代码托管平台上以该分支创建 PR：
+   - 标题包含 `type` + 简短说明；
+   - 描述中简要写明背景、变更点、验证用到的 `agent-tool.sh test/build/run` 命令；
+   - 链接 CTG 任务或 Issue。
 
-3. Codex / Agent 使用规范
-	•	Codex / 任何 Agent 工具的“项目根目录”必须指向某个 Agent 仓库，例如：
+3. PR 合并并上线后，清理对应 Agent workspace：
 
-<parent-dir>/<repo-name>-agents/<repo-name>-agent-feat-user-profile-header
+```bash
+cd <repo-name>/
+./agent-tool.sh ws cleanup <type> <scope>          # 交互确认
+# 或
+./agent-tool.sh ws cleanup --force <type> <scope>  # 非交互模式（脚本/CI）
+```
 
+注意：
+- 只通过 `ws cleanup` 删除 Agent 仓，不要手动 rm 目录；
+- 如需查看当前活跃 Agent 列表，可使用：
 
-	•	不直接在主仓根目录上运行 Codex 改代码。
+```bash
+./agent-tool.sh ws list
+./agent-tool.sh ws status
+```
 
-3.1 Agent 允许的操作
-	•	git status / git diff / git log
-	•	修改父仓业务代码
-	•	在已切到 agent/<type>/<scope> 的 submodule 内编辑并提交
-	•	生成 commit message / PR 描述 / 影响分析
+---
 
-3.2 Agent 禁止的操作
-	•	在任何层级执行 git clone / git worktree
-	•	修改 .gitmodules
-	•	执行 git reset --hard / git clean -xfd / git gc / git prune
-	•	执行 git push --force / 删除远端分支 / 修改 remote 配置
+## 6. 示例：从 CTG 任务到完成发布
 
-⸻
+假设 CTG 中有任务「为 Android 项目新增用户中心页」，约定：
+- `type = feat`
+- `scope = user-center-screen`
 
-4. agent_clone.sh
+典型流程：
 
-每个 Agent 仓库根目录下自动生成，创建时自动执行一次：
+```bash
+# 在主仓
+cd <repo-name>/
+git checkout dev
+git pull
+./agent-tool.sh ws create --base-branch dev feat user-center-screen
 
-#!/usr/bin/env bash
-set -euo pipefail
+# 进入 Agent 仓
+cd ../<repo-name>-agents/<repo-name>-agent-feat-user-center-screen/
+./agent-tool.sh cfg mcp -v --codex
+./agent-tool.sh doctor cli
 
-echo "==> 初始化 submodules (agent_clone.sh) ..."
+# 开发 & 本地验证
+./agent-tool.sh test android unit
+./agent-tool.sh build android com.myapp Debug
+./agent-tool.sh run android com.myapp Debug
 
-git submodule init || true
+# 提交 & 推送
+git commit -am "feat: add user center screen"
+git push -u origin agent/feat/user-center-screen
 
-if git config -f .gitmodules --get-regexp path >/dev/null 2>&1; then
-  git config -f .gitmodules --get-regexp path | awk '{print $2}' | \
-  while IFS= read -r m; do
-    echo "  -> 初始化 submodule: ${m}"
-    git -c submodule.alternateErrorStrategy=info \
-        submodule update --init --recursive "${m}" 2>/dev/null || echo "  !! 跳过: ${m}"
-  done
-else
-  echo "  (没有配置任何 submodule，跳过初始化)"
-fi
+# PR 合并上线后，在主仓清理
+cd ../<repo-name>/
+./agent-tool.sh ws cleanup feat user-center-screen
+```
 
-echo "==> submodules 初始化完成。"
-
-需要重新初始化 submodule 时，在 Agent 仓库根目录执行：
-
-./agent_clone.sh
-
-
-⸻
-
-5. 给 Codex / Agent 的提示模板（示例）
-
-	•	项目根目录：<parent-dir>/<repo-name>-agents/<repo-name>-agent-<type>-<scope>
-	•	当前 Agent 分支：agent/<type>/<scope>
-	•	基线分支：base_branch 字段指定（如 feature/homepage 或 dev）
-	•	submodule 已初始化并尽可能基于同名基线分支创建/切换到 agent/<type>/<scope>；不存在该基线分支的子仓保持原状
-	•	禁止执行 git clone / git worktree / 修改 .gitmodules / 强制 push / reset –hard 等破坏性操作
-	•	仅在当前 Agent 仓库内进行增量、可 review 的改动
+按照以上流程，人类与代码 Agent 均可以在统一的 Git 结构与命令约定下，高效且可控地完成从「任务创建」到「发布与清理」的完整闭环。

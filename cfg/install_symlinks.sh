@@ -10,7 +10,7 @@ set -euo pipefail
 # 建立指向统一配置目录的软链接
 # ═══════════════════════════════════════════════════════════════════════════════
 
-AI_HOME="${AI_HOME:-${HOME}/.agents}"
+AGENT_HOME="${AGENT_HOME:-${HOME}/.agents}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 # 颜色
@@ -43,7 +43,7 @@ usage() {
   -h, --help        显示本帮助信息
 
 环境变量:
-  AI_HOME           统一配置仓库路径（默认: ~/.agents）
+  AGENT_HOME        统一配置仓库路径（默认: ~/.agents）
 EOF
   exit 0
 }
@@ -118,7 +118,7 @@ link_dir_contents() {
   shopt -u nullglob
 }
 
-# 删除某目录下指向 AI_HOME 的软链接
+# 删除某目录下指向 AGENT_HOME 的软链接
 remove_links_pointing_to_ai() {
   local dir="$1"
 
@@ -127,7 +127,7 @@ remove_links_pointing_to_ai() {
   find "$dir" -maxdepth 1 -type l 2>/dev/null | while read -r link; do
     local target
     target="$(readlink "$link" || true)"
-    if [[ "$target" == "${AI_HOME}"* ]]; then
+    if [[ "$target" == "${AGENT_HOME}"* ]]; then
       if $DRY_RUN; then
         log_verbose "将删除软链接: $link -> $target"
       else
@@ -143,16 +143,25 @@ remove_links_pointing_to_ai() {
 # ─────────────────────────────────────────────────────────────────────────────
 
 init_ai_home_structure() {
-  log_info "检查并初始化 AI_HOME 目录结构: $AI_HOME"
+  log_info "检查并初始化 AGENT_HOME 目录结构: $AGENT_HOME"
 
-  ensure_dir "$AI_HOME"
+  ensure_dir "$AGENT_HOME"
 
   # 顶层 AGENTS.md
-  if [[ ! -f "${AI_HOME}/AGENTS.md" ]]; then
-    if $DRY_RUN; then
-      log_verbose "将创建 AGENTS.md 模板"
+  if [[ ! -f "${AGENT_HOME}/AGENTS.md" ]]; then
+    local agents_md_template="${SCRIPT_DIR}/templates/AGENTS.md"
+    if [[ -f "${agents_md_template}" ]]; then
+      if $DRY_RUN; then
+        log_verbose "将从模板复制 AGENTS.md: ${agents_md_template} -> ${AGENT_HOME}/AGENTS.md"
+      else
+        cp "${agents_md_template}" "${AGENT_HOME}/AGENTS.md"
+        log_verbose "已从模板复制 AGENTS.md"
+      fi
     else
-      cat > "${AI_HOME}/AGENTS.md" <<'EOF'
+      if $DRY_RUN; then
+        log_verbose "未找到 AGENTS.md 模板，将使用内联默认内容创建"
+      else
+        cat > "${AGENT_HOME}/AGENTS.md" <<'EOF'
 # AGENTS.md
 
 ## 我是谁（Who I am）
@@ -177,19 +186,29 @@ init_ai_home_structure() {
   - 构建工具：Android 使用 Gradle，Web 使用 pnpm，等等
 - 这里主要是帮助各个 Agent 理解你真实的开发环境
 EOF
-      log_verbose "已创建 AGENTS.md 模板"
+        log_verbose "已创建 AGENTS.md 模板（内联默认内容）"
+      fi
     fi
   else
     log_verbose "AGENTS.md 已存在，保持不变"
   fi
 
   # 顶层 README.md：说明目录结构 + 三件套脚本 + 推荐工作流
-  if [[ ! -f "${AI_HOME}/README.md" ]]; then
-    if $DRY_RUN; then
-      log_verbose "将创建 README.md"
+  if [[ ! -f "${AGENT_HOME}/README.md" ]]; then
+    local readme_template="${SCRIPT_DIR}/templates/README.md"
+    if [[ -f "${readme_template}" ]]; then
+      if $DRY_RUN; then
+        log_verbose "将从模板复制 README.md: ${readme_template} -> ${AGENT_HOME}/README.md"
+      else
+        cp "${readme_template}" "${AGENT_HOME}/README.md"
+        log_verbose "已从模板复制 README.md"
+      fi
     else
-      cat > "${AI_HOME}/README.md" <<'EOF'
-# 统一配置目录 ($AI_HOME)
+      if $DRY_RUN; then
+        log_verbose "未找到 README.md 模板，将使用内联默认内容创建"
+      else
+        cat > "${AGENT_HOME}/README.md" <<'EOF'
+# 统一配置目录 ($AGENT_HOME)
 
 这是个人的「AI 配置单一真相（Single Source of Truth）」仓库，用来统一管理：
 
@@ -209,12 +228,12 @@ EOF
 ## 目录结构约定
 
 ```text
-$AI_HOME
+$AGENT_HOME
 ├── AGENTS.md                 # 全局 persona + 编码规则（被多工具读取）
 ├── README.md                 # 本说明文件
 ├── skills/
 │   ├── shared/               # Claude + Codex 等共享的 Skill
-│   │   └── android-refactor/ # 示例 Skill
+│   │   └── sayhello/         # 示例 Skill：用于验证管线
 │   │       ├── SKILL.md
 │   │       └── scripts/run.sh
 │   ├── claude-only/          # 仅 Claude 使用的 Skill
@@ -229,7 +248,7 @@ $AI_HOME
 │   ├── claude.json.snippet   # Claude 用的 .mcp.json 片段（不含密钥）
 │   ├── gemini.json.snippet   # Gemini 用的 settings.json 片段（不含密钥）
 │   └── codex.toml.snippet    # Codex 用的 config.toml 片段（只放 [mcp_servers.*]）
-└── .mcp.json                 # 把 $AI_HOME 本身当成一个“项目”时的 MCP 配置骨架
+└── .mcp.json                 # 把 $AGENT_HOME 本身当成一个“项目”时的 MCP 配置骨架
 ````
 
 ---
@@ -242,16 +261,16 @@ $AI_HOME
 
 作用：
 
-* 初始化 `$AI_HOME` 基本目录结构和示例文件（仅在不存在时创建）
-* 为三套工具建立「指向 $AI_HOME 的软链接」：
+* 初始化 `$AGENT_HOME` 基本目录结构和示例文件（仅在不存在时创建）
+* 为三套工具建立「指向 $AGENT_HOME 的软链接」：
 
-  * `~/.claude/CLAUDE.md -> $AI_HOME/AGENTS.md`
-  * `~/.claude/commands/* -> $AI_HOME/commands/{shared,claude-only}`
-  * `~/.claude/skills/*   -> $AI_HOME/skills/{shared,claude-only}`
-  * `~/.codex/prompts/*   -> $AI_HOME/commands/{shared,codex-only}`
-  * `~/.codex/skills/*    -> $AI_HOME/skills/{shared,codex-only}`
-  * `~/.codex/AGENTS.md   -> $AI_HOME/AGENTS.md`
-  * `~/.gemini/AGENTS.md  -> $AI_HOME/AGENTS.md`
+  * `~/.claude/CLAUDE.md -> $AGENT_HOME/AGENTS.md`
+  * `~/.claude/commands/* -> $AGENT_HOME/commands/{shared,claude-only}`
+  * `~/.claude/skills/*   -> $AGENT_HOME/skills/{shared,claude-only}`
+  * `~/.codex/prompts/*   -> $AGENT_HOME/commands/{shared,codex-only}`
+  * `~/.codex/skills/*    -> $AGENT_HOME/skills/{shared,codex-only}`
+  * `~/.codex/AGENTS.md   -> $AGENT_HOME/AGENTS.md`
+  * `~/.gemini/AGENTS.md  -> $AGENT_HOME/AGENTS.md`
 * 如果已安装过，可以用 `--uninstall` 把这些软链接干净移除
 
 示例：
@@ -274,7 +293,7 @@ $AI_HOME
 
 位置：`~/scripts/agent-tool/cfg/project_mcp_setup.sh`（或通过 `agent-tool cfg mcp` 调用）
 
-在「项目根目录」中运行，用 `$AI_HOME/mcp` 下的 snippet 生成项目级配置：
+在「项目根目录」中运行，用 `$AGENT_HOME/mcp` 下的 snippet 生成项目级配置：
 
 * Claude: `./.mcp.json`
 * Gemini: `./.gemini/settings.json`
@@ -293,7 +312,7 @@ cd /path/to/your/project
 
 作用：
 
-* 检查 `$AI_HOME` 是否存在关键文件/目录
+* 检查 `$AGENT_HOME` 是否存在关键文件/目录
 * 校验 `mcp/*.json.snippet` 的 JSON 语法（依赖 jq）
 * 检查几个关键软链接是否存在、是否为 symlink
 
@@ -334,45 +353,46 @@ cd /path/to/your/project
    ```
 
 EOF
-log_verbose "已创建 README.md"
-fi
-else
-log_verbose "README.md 已存在，保持不变"
-fi
+        log_verbose "已创建 README.md（内联默认内容）"
+      fi
+    fi
+  else
+    log_verbose "README.md 已存在，保持不变"
+  fi
 
 # 核心目录结构
 
-ensure_dir "${AI_HOME}/skills/shared"
-ensure_dir "${AI_HOME}/skills/claude-only"
-ensure_dir "${AI_HOME}/skills/codex-only"
+ensure_dir "${AGENT_HOME}/skills/shared"
+ensure_dir "${AGENT_HOME}/skills/claude-only"
+ensure_dir "${AGENT_HOME}/skills/codex-only"
 
-ensure_dir "${AI_HOME}/commands/shared"
-ensure_dir "${AI_HOME}/commands/claude-only"
-ensure_dir "${AI_HOME}/commands/codex-only"
-ensure_dir "${AI_HOME}/commands/gemini-only"
+ensure_dir "${AGENT_HOME}/commands/shared"
+ensure_dir "${AGENT_HOME}/commands/claude-only"
+ensure_dir "${AGENT_HOME}/commands/codex-only"
+ensure_dir "${AGENT_HOME}/commands/gemini-only"
 
-ensure_dir "${AI_HOME}/hooks/claude"
+ensure_dir "${AGENT_HOME}/hooks/claude"
 
-ensure_dir "${AI_HOME}/agents/claude"
+ensure_dir "${AGENT_HOME}/agents/claude"
 
-ensure_dir "${AI_HOME}/mcp"
+ensure_dir "${AGENT_HOME}/mcp"
 
   # 示例命令：/review（优先从模板目录复制）
 
-  if [[ ! -f "${AI_HOME}/commands/shared/review.md" ]]; then
+  if [[ ! -f "${AGENT_HOME}/commands/shared/review.md" ]]; then
     local review_template="${SCRIPT_DIR}/templates/commands/shared/review.md"
     if [[ -f "${review_template}" ]]; then
       if $DRY_RUN; then
-        log_verbose "将从模板复制示例命令: ${review_template} -> ${AI_HOME}/commands/shared/review.md"
+        log_verbose "将从模板复制示例命令: ${review_template} -> ${AGENT_HOME}/commands/shared/review.md"
       else
-        cp "${review_template}" "${AI_HOME}/commands/shared/review.md"
+        cp "${review_template}" "${AGENT_HOME}/commands/shared/review.md"
         log_verbose "已从模板复制示例命令: review.md"
       fi
     else
       if $DRY_RUN; then
         log_verbose "未找到 review 模板，将使用内联默认内容创建示例命令: commands/shared/review.md"
       else
-        cat > "${AI_HOME}/commands/shared/review.md" <<'EOF'
+        cat > "${AGENT_HOME}/commands/shared/review.md" <<'EOF'
 
 # review
 
@@ -394,50 +414,134 @@ EOF
     fi
   fi
 
-  # 示例 Skill：android-refactor（从模板目录复制）
+  # 示例命令：/enhance（优先从模板目录复制）
 
-  local skill_dir="${AI_HOME}/skills/shared/android-refactor"
-  local template_skill_dir="${SCRIPT_DIR}/templates/skills/android-refactor"
+  if [[ ! -f "${AGENT_HOME}/commands/shared/enhance.md" ]]; then
+    local enhance_template="${SCRIPT_DIR}/templates/commands/shared/enhance.md"
+    if [[ -f "${enhance_template}" ]]; then
+      if $DRY_RUN; then
+        log_verbose "将从模板复制示例命令: ${enhance_template} -> ${AGENT_HOME}/commands/shared/enhance.md"
+      else
+        cp "${enhance_template}" "${AGENT_HOME}/commands/shared/enhance.md"
+        log_verbose "已从模板复制示例命令: enhance.md"
+      fi
+    else
+      if $DRY_RUN; then
+        log_verbose "未找到 enhance 模板，将使用内联默认内容创建示例命令: commands/shared/enhance.md"
+      else
+        cat > "${AGENT_HOME}/commands/shared/enhance.md" <<'EOF'
+# enhance
+
+---
+
+description: "使用 prompt-enhancer MCP 优化指令并经用户确认后再执行。"
+
+---
+
+你现在扮演一名「Prompt 优化助手 + 执行代理」。
+
+目标：在真正开始执行用户任务之前，先用 MCP 的 `prompt-enhancer` 工具优化用户的原始指令，并让用户确认增强后的版本（寸止），再据此展开后续工作。
+
+工作流要求：
+
+1. 把用户通过 `/enhance ...` 提供的文本视为原始指令 `origin_prompt`。
+2. 调用名为 `prompt-enhancer` 的 MCP 工具，对 `origin_prompt` 做一次优化。向该工具发送的内容应仅包含原始指令文本本身。
+3. 从工具返回结果中，解析出 `<augment-enhanced-prompt>...</augment-enhanced-prompt>` 标签内的增强后指令，把它记为 `enhanced_prompt`。
+4. 先「寸止」给出结果：用中文简要说明 `enhanced_prompt` 相比原始指令有哪些关键优化（例如更清晰的目标、范围、约束或安全提醒），并完整展示 `enhanced_prompt`，此时不要开始执行任务。
+5. 明确询问用户是否接受这个增强版本：例如提示用户回复 `OK` / `Y` 或给出修改意见。
+6. 只有在用户确认后，才把 `enhanced_prompt` 视为真正的任务指令，继续后续的推理、工具调用和实现工作；后续所有操作都应基于 `enhanced_prompt`，而不是 `origin_prompt`。
+7. 如果用户对增强结果不满意或提出新要求，根据用户的补充重新调用 `prompt-enhancer` 调整指令，再次进入确认流程。
+
+当你看到用户以 `/enhance ...` 的形式发起请求时，请严格按照上述工作流执行，而不是直接处理原始指令。
+EOF
+        log_verbose "已创建示例命令: enhance.md"
+      fi
+    fi
+  fi
+
+  # 示例 Skill：sayhello（从模板目录复制，用于验证 Skill 管线）
+
+  local skill_dir="${AGENT_HOME}/skills/shared/sayhello"
+  local template_skill_dir="${SCRIPT_DIR}/templates/skills/sayhello"
 
   if [[ -d "${template_skill_dir}" ]]; then
-  ensure_dir "${skill_dir}"
-  if $DRY_RUN; then
-  log_verbose "将从模板复制示例 Skill: ${template_skill_dir} -> ${skill_dir}"
+    ensure_dir "${skill_dir}"
+    if $DRY_RUN; then
+      log_verbose "将从模板复制示例 Skill: ${template_skill_dir} -> ${skill_dir}"
+    else
+      cp -R "${template_skill_dir}/." "${skill_dir}/"
+      log_verbose "已从模板复制示例 Skill: sayhello"
+    fi
   else
-  cp -R "${template_skill_dir}/." "${skill_dir}/"
-  log_verbose "已从模板复制示例 Skill: android-refactor"
-  fi
-  else
-  log_verbose "未找到 android-refactor 模板目录: ${template_skill_dir}，跳过示例 Skill 初始化"
+    log_verbose "未找到 sayhello 模板目录: ${template_skill_dir}，跳过示例 Skill 初始化"
   fi
 
 # MCP snippet 占位文件（不含密钥）
 
-if [[ ! -f "${AI_HOME}/mcp/claude.json.snippet" ]]; then
+if [[ ! -f "${AGENT_HOME}/mcp/claude.json.snippet" ]]; then
 if $DRY_RUN; then
 log_verbose "将创建 mcp/claude.json.snippet"
 else
-cat > "${AI_HOME}/mcp/claude.json.snippet" <<'EOF'
+cat > "${AGENT_HOME}/mcp/claude.json.snippet" <<'EOF'
 {
-"mcpServers": {
-"example-server": {
-"type": "stdio",
-"command": "echo",
-"args": ["示例 MCP server，请替换为真实配置"],
-"env": {}
-}
-}
+  "mcpServers": {
+    "claudecode-mcp-async": {
+      "args": [
+        "claudecode-mcp-async"
+      ],
+      "command": "uvx",
+      "env": {}
+    },
+    "codex-mcp-async": {
+      "args": [
+        "codex-mcp-async"
+      ],
+      "command": "uvx",
+      "env": {}
+    },
+    "exa-mcp": {
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.exa.ai/mcp"
+      ],
+      "command": "npx"
+    },
+    "gemini-cli-mcp-async": {
+      "args": [
+        "gemini-cli-mcp-async"
+      ],
+      "command": "uvx",
+      "env": {}
+    },
+    "memory": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "command": "npx",
+      "type": "stdio"
+    },
+    "sequential-thinking": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "command": "npx",
+      "type": "stdio"
+    }
+  }
 }
 EOF
 log_verbose "已创建 mcp/claude.json.snippet"
 fi
 fi
 
-if [[ ! -f "${AI_HOME}/mcp/codex.toml.snippet" ]]; then
+if [[ ! -f "${AGENT_HOME}/mcp/codex.toml.snippet" ]]; then
 if $DRY_RUN; then
 log_verbose "将创建 mcp/codex.toml.snippet"
 else
-cat > "${AI_HOME}/mcp/codex.toml.snippet" <<'EOF'
+cat > "${AGENT_HOME}/mcp/codex.toml.snippet" <<'EOF'
 
 # 示例 Codex MCP 片段（请合并到项目级 .codex/config.toml 中）
 
@@ -452,38 +556,78 @@ log_verbose "已创建 mcp/codex.toml.snippet"
 fi
 fi
 
-if [[ ! -f "${AI_HOME}/mcp/gemini.json.snippet" ]]; then
+if [[ ! -f "${AGENT_HOME}/mcp/gemini.json.snippet" ]]; then
 if $DRY_RUN; then
 log_verbose "将创建 mcp/gemini.json.snippet"
 else
-cat > "${AI_HOME}/mcp/gemini.json.snippet" <<'EOF'
+cat > "${AGENT_HOME}/mcp/gemini.json.snippet" <<'EOF'
 {
-"mcpServers": {
-"example-server": {
-"command": "echo",
-"args": ["示例 MCP server，请替换为真实配置"],
-"env": {}
-}
-},
-"contextFileName": ["AGENTS.md"]
+  "mcpServers": {
+    "claudecode-mcp-async": {
+      "args": [
+        "claudecode-mcp-async"
+      ],
+      "command": "uvx",
+      "env": {}
+    },
+    "codex-mcp-async": {
+      "args": [
+        "codex-mcp-async"
+      ],
+      "command": "uvx",
+      "env": {}
+    },
+    "exa-mcp": {
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.exa.ai/mcp"
+      ],
+      "command": "npx"
+    },
+    "gemini-cli-mcp-async": {
+      "args": [
+        "gemini-cli-mcp-async"
+      ],
+      "command": "uvx",
+      "env": {}
+    },
+    "memory": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ],
+      "command": "npx",
+      "type": "stdio"
+    },
+    "sequential-thinking": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "command": "npx",
+      "type": "stdio"
+    }
+  },
+  "contextFileName": ["AGENTS.md"]
 }
 EOF
 log_verbose "已创建 mcp/gemini.json.snippet"
 fi
 fi
 
-# 把 $AI_HOME 本身当成一个“项目”时的 .mcp.json 骨架
+# 把 $AGENT_HOME 本身当成一个“项目”时的 .mcp.json 骨架
 
-if [[ ! -f "${AI_HOME}/.mcp.json" ]]; then
+if [[ ! -f "${AGENT_HOME}/.mcp.json" ]]; then
 if $DRY_RUN; then
-log_verbose "将创建 ${AI_HOME}/.mcp.json 骨架"
+log_verbose "将创建 ${AGENT_HOME}/.mcp.json 骨架"
 else
-cat > "${AI_HOME}/.mcp.json" <<'EOF'
+cat > "${AGENT_HOME}/.mcp.json" <<'EOF'
 {
 "mcpServers": { }
 }
 EOF
-log_verbose "已创建 ${AI_HOME}/.mcp.json 骨架"
+log_verbose "已创建 ${AGENT_HOME}/.mcp.json 骨架"
 fi
 fi
 }
@@ -504,38 +648,38 @@ fi
 
 # 全局说明书
 
-safe_link "${AI_HOME}/AGENTS.md" "$claude_home/CLAUDE.md"
+safe_link "${AGENT_HOME}/AGENTS.md" "$claude_home/CLAUDE.md"
 
 # Commands: shared + claude-only
 
 if ! $DRY_RUN; then
 mkdir -p "$claude_home/commands"
 fi
-link_dir_contents "${AI_HOME}/commands/shared" "$claude_home/commands" "*.md"
-link_dir_contents "${AI_HOME}/commands/claude-only" "$claude_home/commands" "*.md"
+link_dir_contents "${AGENT_HOME}/commands/shared" "$claude_home/commands" "*.md"
+link_dir_contents "${AGENT_HOME}/commands/claude-only" "$claude_home/commands" "*.md"
 
 # Skills: shared + claude-only
 
 if ! $DRY_RUN; then
 mkdir -p "$claude_home/skills"
 fi
-link_dir_contents "${AI_HOME}/skills/shared" "$claude_home/skills"
-link_dir_contents "${AI_HOME}/skills/claude-only" "$claude_home/skills"
+link_dir_contents "${AGENT_HOME}/skills/shared" "$claude_home/skills"
+link_dir_contents "${AGENT_HOME}/skills/claude-only" "$claude_home/skills"
 
 # Hooks: Claude-only
 if ! $DRY_RUN; then
   mkdir -p "$claude_home/hooks"
 fi
-link_dir_contents "${AI_HOME}/hooks/claude" "$claude_home/hooks"
+link_dir_contents "${AGENT_HOME}/hooks/claude" "$claude_home/hooks"
 
 # Sub agents: Claude-only
 if ! $DRY_RUN; then
   mkdir -p "$claude_home/agents"
 fi
-link_dir_contents "${AI_HOME}/agents/claude" "$claude_home/agents"
+link_dir_contents "${AGENT_HOME}/agents/claude" "$claude_home/agents"
 
-if [[ -f "${AI_HOME}/mcp/claude.json.snippet" ]]; then
-log_verbose "提示: Claude MCP snippet 位于 ${AI_HOME}/mcp/claude.json.snippet，可配合 project_mcp_setup.sh 在项目层使用。"
+if [[ -f "${AGENT_HOME}/mcp/claude.json.snippet" ]]; then
+log_verbose "提示: Claude MCP snippet 位于 ${AGENT_HOME}/mcp/claude.json.snippet，可配合 project_mcp_setup.sh 在项目层使用。"
 fi
 
 log_success "Claude Code 已配置完成"
@@ -554,23 +698,23 @@ fi
 if ! $DRY_RUN; then
 mkdir -p "$codex_home/prompts"
 fi
-link_dir_contents "${AI_HOME}/commands/shared" "$codex_home/prompts" "*.md"
-link_dir_contents "${AI_HOME}/commands/codex-only" "$codex_home/prompts" "*.md"
+link_dir_contents "${AGENT_HOME}/commands/shared" "$codex_home/prompts" "*.md"
+link_dir_contents "${AGENT_HOME}/commands/codex-only" "$codex_home/prompts" "*.md"
 
 # Skills: shared + codex-only
 
 if ! $DRY_RUN; then
 mkdir -p "$codex_home/skills"
 fi
-link_dir_contents "${AI_HOME}/skills/shared" "$codex_home/skills"
-link_dir_contents "${AI_HOME}/skills/codex-only" "$codex_home/skills"
+link_dir_contents "${AGENT_HOME}/skills/shared" "$codex_home/skills"
+link_dir_contents "${AGENT_HOME}/skills/codex-only" "$codex_home/skills"
 
 # 全局说明书，方便在 Codex 里打开查看
 
-safe_link "${AI_HOME}/AGENTS.md" "$codex_home/AGENTS.md"
+safe_link "${AGENT_HOME}/AGENTS.md" "$codex_home/AGENTS.md"
 
-if [[ -f "${AI_HOME}/mcp/codex.toml.snippet" ]]; then
-log_verbose "提示: Codex MCP snippet 位于 ${AI_HOME}/mcp/codex.toml.snippet，可配合 project_mcp_setup.sh 在项目层使用。"
+if [[ -f "${AGENT_HOME}/mcp/codex.toml.snippet" ]]; then
+log_verbose "提示: Codex MCP snippet 位于 ${AGENT_HOME}/mcp/codex.toml.snippet，可配合 project_mcp_setup.sh 在项目层使用。"
 fi
 
 log_success "Codex CLI 已配置完成"
@@ -618,10 +762,10 @@ fi
 
 # 软链接 AGENTS.md 到 ~/.gemini，用于手工查看或其他工具使用
 
-safe_link "${AI_HOME}/AGENTS.md" "$gemini_home/AGENTS.md"
+safe_link "${AGENT_HOME}/AGENTS.md" "$gemini_home/AGENTS.md"
 
-if [[ -f "${AI_HOME}/mcp/gemini.json.snippet" ]]; then
-log_verbose "提示: Gemini MCP snippet 位于 ${AI_HOME}/mcp/gemini.json.snippet，可配合 project_mcp_setup.sh 在项目层使用。"
+if [[ -f "${AGENT_HOME}/mcp/gemini.json.snippet" ]]; then
+log_verbose "提示: Gemini MCP snippet 位于 ${AGENT_HOME}/mcp/gemini.json.snippet，可配合 project_mcp_setup.sh 在项目层使用。"
 fi
 
 log_success "Gemini CLI 已配置完成"
@@ -655,14 +799,14 @@ fi
 fi
 done
 
-# 目录内部指向 AI_HOME 的软链接
+# 目录内部指向 AGENT_HOME 的软链接
 
 remove_links_pointing_to_ai "${HOME}/.claude/commands"
 remove_links_pointing_to_ai "${HOME}/.claude/skills"
 remove_links_pointing_to_ai "${HOME}/.codex/prompts"
 remove_links_pointing_to_ai "${HOME}/.codex/skills"
 
-log_success "卸载完成（只移除了指向 AI_HOME 的软链接，未删除任何真实目录/文件）。"
+log_success "卸载完成（只移除了指向 AGENT_HOME 的软链接，未删除任何真实目录/文件）。"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -699,8 +843,8 @@ init_ai_home_structure
 
 # 非 dry-run 场景下，确保 AGENTS.md 存在
 
-if ! $DRY_RUN && [[ ! -f "${AI_HOME}/AGENTS.md" ]]; then
-log_error "初始化后仍未找到 AGENTS.md，请手动检查 $AI_HOME"
+if ! $DRY_RUN && [[ ! -f "${AGENT_HOME}/AGENTS.md" ]]; then
+log_error "初始化后仍未找到 AGENTS.md，请手动检查 $AGENT_HOME"
 exit 1
 fi
 

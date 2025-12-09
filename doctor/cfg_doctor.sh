@@ -5,23 +5,23 @@ set -euo pipefail
 # ~/scripts/agent-tool/doctor/cfg_doctor.sh
 #
 # 用途：
-#   - 快速自检统一配置目录（AI_HOME）和关键软链接是否正常
+#   - 快速自检统一配置目录（AGENT_HOME）和关键软链接是否正常
 #   - 检查：
-#       * $AI_HOME 是否存在
+#       * $AGENT_HOME 是否存在
 #       * AGENTS.md 是否存在（没有也能用，但强烈建议有）
-#       * commands/、skills/、hooks/、agents/、mcp/、bootstrap/ 等关键目录
+#       * commands/、skills/、hooks/、agents/、mcp/ 等关键目录
 #       * mcp/*.json.snippet 的 JSON 语法（依赖 jq）
 #       * 关键软链接：
 #           - ~/.claude/CLAUDE.md / ~/.codex/AGENTS.md / ~/.gemini/AGENTS.md
-#           - ~/.claude/commands/*    -> $AI_HOME/commands/{shared,claude-only}
-#           - ~/.claude/skills/*      -> $AI_HOME/skills/{shared,claude-only}
-#           - ~/.claude/hooks/*       -> $AI_HOME/hooks/claude
-#           - ~/.claude/agents/*      -> $AI_HOME/agents/claude
-#           - ~/.codex/prompts/*      -> $AI_HOME/commands/{shared,codex-only}
-#           - ~/.codex/skills/*       -> $AI_HOME/skills/{shared,codex-only}
+#           - ~/.claude/commands/*    -> $AGENT_HOME/commands/{shared,claude-only}
+#           - ~/.claude/skills/*      -> $AGENT_HOME/skills/{shared,claude-only}
+#           - ~/.claude/hooks/*       -> $AGENT_HOME/hooks/claude
+#           - ~/.claude/agents/*      -> $AGENT_HOME/agents/claude
+#           - ~/.codex/prompts/*      -> $AGENT_HOME/commands/{shared,codex-only}
+#           - ~/.codex/skills/*       -> $AGENT_HOME/skills/{shared,codex-only}
 # ═══════════════════════════════════════════════════════════════════════════════
 
-AI_HOME="${AI_HOME:-${HOME}/.agents}"
+AGENT_HOME="${AGENT_HOME:-${HOME}/.agents}"
 VERBOSE=false
 
 RED='\033[0;31m'
@@ -45,7 +45,7 @@ usage() {
   -h, --help      显示本帮助信息
 
 环境变量:
-  AI_HOME         统一配置仓库路径 (默认: ~/.agents)
+  AGENT_HOME      统一配置仓库路径 (默认: ~/.agents)
 
 说明:
   本脚本只做【健康检查】，不会修改任何文件。
@@ -160,49 +160,48 @@ main() {
     shift
   done
 
-  if [[ ! -d "$AI_HOME" ]]; then
-    log_error "AI_HOME 目录不存在: $AI_HOME"
+  if [[ ! -d "$AGENT_HOME" ]]; then
+    log_error "AGENT_HOME 目录不存在: $AGENT_HOME"
     exit 1
   fi
 
-  log_info "AI_HOME: $AI_HOME"
+  log_info "AGENT_HOME: $AGENT_HOME"
   echo ""
 
   # 核心文件 / 目录
-  if [[ -f "${AI_HOME}/AGENTS.md" ]]; then
-    log_success "AGENTS.md 存在: ${AI_HOME}/AGENTS.md"
+  if [[ -f "${AGENT_HOME}/AGENTS.md" ]]; then
+    log_success "AGENTS.md 存在: ${AGENT_HOME}/AGENTS.md"
   else
-    log_warn "AGENTS.md 缺失: ${AI_HOME}/AGENTS.md"
-    log_warn "→ 建议在 ${AI_HOME} 下创建 AGENTS.md 作为全局说明书。"
+    log_warn "AGENTS.md 缺失: ${AGENT_HOME}/AGENTS.md"
+    log_warn "→ 建议在 ${AGENT_HOME} 下创建 AGENTS.md 作为全局说明书。"
   fi
 
-  check_dir "${AI_HOME}/commands"  "commands 目录"
-  check_dir "${AI_HOME}/skills"    "skills 目录"
-  check_dir "${AI_HOME}/hooks"     "hooks 目录"
-  check_dir "${AI_HOME}/agents"    "agents 目录"
-  check_dir "${AI_HOME}/mcp"       "mcp 目录"
-  check_dir "${AI_HOME}/bootstrap" "bootstrap 目录"
+  check_dir "${AGENT_HOME}/commands"  "commands 目录"
+  check_dir "${AGENT_HOME}/skills"    "skills 目录"
+  check_dir "${AGENT_HOME}/hooks"     "hooks 目录"
+  check_dir "${AGENT_HOME}/agents"    "agents 目录"
+  check_dir "${AGENT_HOME}/mcp"       "mcp 目录"
 
   echo ""
 
   # MCP JSON snippet 语法校验
-  check_json_valid "${AI_HOME}/mcp/claude.json.snippet" "Claude MCP snippet"
-  check_json_valid "${AI_HOME}/mcp/gemini.json.snippet" "Gemini MCP snippet"
+  check_json_valid "${AGENT_HOME}/mcp/claude.json.snippet" "Claude MCP snippet"
+  check_json_valid "${AGENT_HOME}/mcp/gemini.json.snippet" "Gemini MCP snippet"
 
   echo ""
 
   # 关键 symlink 检查
-  check_symlink "${HOME}/.claude/CLAUDE.md" "Claude 全局说明文件" "${AI_HOME}"
-  check_symlink "${HOME}/.codex/AGENTS.md"  "Codex 全局说明文件"  "${AI_HOME}"
-  check_symlink "${HOME}/.gemini/AGENTS.md" "Gemini 全局说明文件" "${AI_HOME}"
+  check_symlink "${HOME}/.claude/CLAUDE.md" "Claude 全局说明文件" "${AGENT_HOME}"
+  check_symlink "${HOME}/.codex/AGENTS.md"  "Codex 全局说明文件"  "${AGENT_HOME}"
+  check_symlink "${HOME}/.gemini/AGENTS.md" "Gemini 全局说明文件" "${AGENT_HOME}"
 
-  check_dir_links "${HOME}/.claude/commands" "Claude commands 软链接" "${AI_HOME}/commands"
-  check_dir_links "${HOME}/.claude/skills"   "Claude skills 软链接"   "${AI_HOME}/skills"
-  check_dir_links "${HOME}/.claude/hooks"    "Claude hooks 软链接"    "${AI_HOME}/hooks"
-  check_dir_links "${HOME}/.claude/agents"   "Claude agents 软链接"   "${AI_HOME}/agents"
+  check_dir_links "${HOME}/.claude/commands" "Claude commands 软链接" "${AGENT_HOME}/commands"
+  check_dir_links "${HOME}/.claude/skills"   "Claude skills 软链接"   "${AGENT_HOME}/skills"
+  check_dir_links "${HOME}/.claude/hooks"    "Claude hooks 软链接"    "${AGENT_HOME}/hooks"
+  check_dir_links "${HOME}/.claude/agents"   "Claude agents 软链接"   "${AGENT_HOME}/agents"
 
-  check_dir_links "${HOME}/.codex/prompts"   "Codex prompts 软链接"   "${AI_HOME}/commands"
-  check_dir_links "${HOME}/.codex/skills"    "Codex skills 软链接"    "${AI_HOME}/skills"
+  check_dir_links "${HOME}/.codex/prompts"   "Codex prompts 软链接"   "${AGENT_HOME}/commands"
+  check_dir_links "${HOME}/.codex/skills"    "Codex skills 软链接"    "${AGENT_HOME}/skills"
 
   echo ""
 

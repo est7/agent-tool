@@ -176,7 +176,7 @@ test_web_project() {
   coverage)
     if [[ ${#extra_args[@]} -eq 0 ]]; then
       # 约定默认通过 --coverage 打开覆盖率（适用于 Jest 等框架）
-      extra_args=(-- --coverage)
+      extra_args=(--coverage)
     fi
     echo "[agent-test][web] 执行覆盖率测试: ${pm} test ${extra_args[*]:-}"
     case "${pm}" in
@@ -207,13 +207,19 @@ agent_tool_test_self() {
     "${root}/doctor/platforms.sh"
     "${root}/doctor/index.sh"
     "${root}/cfg/aliases.sh"
-    "${root}/cfg/aliases.d/core.sh"
     "${root}/cfg/install_symlinks.sh"
     "${root}/cfg/project_mcp_setup.sh"
     "${root}/cfg/index.sh"
     "${root}/dev/index.sh"
     "${root}/test/index.sh"
   )
+
+  local alias_script
+  shopt -s nullglob
+  for alias_script in "${root}/cfg/aliases.d/"*.sh; do
+    files+=("${alias_script}")
+  done
+  shopt -u nullglob
 
   local ok=0
 

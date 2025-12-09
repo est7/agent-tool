@@ -4,33 +4,43 @@ set -euo pipefail
 ########################################
 # Agent workspace 管理 (create/cleanup/list/status)
 #
-# 依赖于主脚本中计算好的:
-# - REPO_ROOT / REPO_NAME / AGENT_ROOT
-# - TYPE / SCOPE / BRANCH / AGENT_DIR_NAME / AGENT_DIR
+# 依赖于主脚本中计算好的参数，通过函数入参传入:
+# - repo_root / agent_root
+# - type / scope / branch / agent_dir_name / agent_dir
+# - base_branch_name（可选）
 ########################################
 
 create_agent_repo() {
-  echo "==> 主仓根目录: ${REPO_ROOT}"
-  echo "==> Agent 根目录: ${AGENT_ROOT}"
-  echo "==> Agent 仓库目录: ${AGENT_DIR}"
-  echo "==> Agent 分支: ${BRANCH}"
+  local repo_root="$1"
+  local agent_root="$2"
+  local type="$3"
+  local scope="$4"
+  local branch="$5"
+  local agent_dir_name="$6"
+  local agent_dir="$7"
+  local base_branch_name="${8:-}"
+
+  echo "==> 主仓根目录: ${repo_root}"
+  echo "==> Agent 根目录: ${agent_root}"
+  echo "==> Agent 仓库目录: ${agent_dir}"
+  echo "==> Agent 分支: ${branch}"
   echo
 
-  mkdir -p "${AGENT_ROOT}"
+  mkdir -p "${agent_root}"
 
-  if [[ -d "${AGENT_DIR}" ]]; then
-    echo "警告: Agent 仓库目录已存在: ${AGENT_DIR}"
+  if [[ -d "${agent_dir}" ]]; then
+    echo "警告: Agent 仓库目录已存在: ${agent_dir}"
     echo "如果需要重建，请先执行 cleanup 再 create。"
     exit 1
   fi
 
   echo "==> 使用主仓作为源 + reference 仓库进行 clone (不自动拉 submodules) ..."
   git clone \
-    --reference "${REPO_ROOT}" \
-    "${REPO_ROOT}" \
-    "${AGENT_DIR}"
+    --reference "${repo_root}" \
+    "${repo_root}" \
+    "${agent_dir}"
 
-  cd "${AGENT_DIR}"
+  cd "${agent_dir}"
 
   ########################################
   # 1) 在 Agent 仓库中生成并执行 agent_clone.sh (初始化 submodules)
@@ -70,8 +80,8 @@ EOF
   local BASE_BRANCH
   local BASE_REF=""
 
-  if [[ -n "${BASE_BRANCH_NAME:-}" ]]; then
-    BASE_BRANCH="${BASE_BRANCH_NAME}"
+  if [[ -n "${base_branch_name}" ]]; then
+    BASE_BRANCH="${base_branch_name}"
     echo "==> 使用显式指定基线分支: ${BASE_BRANCH}"
   elif [[ -n "${DEFAULT_BASE_BRANCH:-}" ]]; then
     BASE_BRANCH="${DEFAULT_BASE_BRANCH}"
@@ -98,13 +108,13 @@ EOF
   fi
 
   echo "==> 基线引用: ${BASE_REF}"
-  git switch -c "${BRANCH}" "${BASE_REF}" 2>/dev/null || git switch "${BRANCH}"
+  git switch -c "${branch}" "${BASE_REF}" 2>/dev/null || git switch "${branch}"
 
   ########################################
   # 3) 为所有已初始化且可访问的 submodule 创建/切换同名分支
   #    基线分支名与父仓一致: BASE_BRANCH
   ########################################
-  echo "==> 为 submodules 创建/切换分支: ${BRANCH} (基线分支=${BASE_BRANCH})"
+  echo "==> 为 submodules 创建/切换分支: ${branch} (基线分支=${BASE_BRANCH})"
 
   if git config -f .gitmodules --get-regexp path >/dev/null 2>&1; then
     git config -f .gitmodules --get-regexp path | awk '{print $2}' |
@@ -138,12 +148,12 @@ EOF
             exit 0
           fi
 
-          if git show-ref --verify --quiet "refs/heads/${BRANCH}"; then
-            echo "     -> 已存在本地分支 ${BRANCH}，切换过去"
-            git switch "${BRANCH}"
+          if git show-ref --verify --quiet "refs/heads/${branch}"; then
+            echo "     -> 已存在本地分支 ${branch}，切换过去"
+            git switch "${branch}"
           else
-            echo "     -> 基于 ${BASE_REF_SUB} 创建分支 ${BRANCH}"
-            git switch -c "${BRANCH}" "${BASE_REF_SUB}" 2>/dev/null || git switch "${BRANCH}" || {
+            echo "     -> 基于 ${BASE_REF_SUB} 创建分支 ${branch}"
+            git switch -c "${branch}" "${BASE_REF_SUB}" 2>/dev/null || git switch "${branch}" || {
               echo "     !! 创建/切换分支失败，保持当前状态"
             }
           fi
@@ -159,36 +169,36 @@ EOF
   CREATED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
   cat >.agent-meta.yml <<EOF
-type: ${TYPE}
-scope: ${SCOPE}
-branch: ${BRANCH}
+type: ${type}
+scope: ${scope}
+branch: ${branch}
 base_branch: ${BASE_BRANCH}
 created_at: ${CREATED_AT}
-origin_repo: ${REPO_ROOT}
-agent_dir_name: ${AGENT_DIR_NAME}
+origin_repo: ${repo_root}
+agent_dir_name: ${agent_dir_name}
 description: "TODO: 填写本任务的更详细描述"
 EOF
 
   cat >README_AGENT.md <<EOF
 # Agent Workspace
 
-本目录是针对任务 **${TYPE}/${SCOPE}** 的独立 Agent 开发仓库。
+本目录是针对任务 **${type}/${scope}** 的独立 Agent 开发仓库。
 
-- 主仓路径: \`${REPO_ROOT}\`
-- Agent 仓库路径: \`${AGENT_DIR}\`
-- 当前 Agent 分支: \`${BRANCH}\`
+- 主仓路径: \`${repo_root}\`
+- Agent 仓库路径: \`${agent_dir}\`
+- 当前 Agent 分支: \`${branch}\`
 - 基线分支: \`${BASE_BRANCH}\`
 - 创建时间(UTC): \`${CREATED_AT}\`
 
 ## 使用说明（人类 & Code Agent）
 
 1. 在编辑器 / Codex / 其他 Agent 工具中，将项目根目录设置为本仓库根目录：
-   \`${AGENT_DIR}\`
+   \`${agent_dir}\`
 
 2. 所有改动请提交到当前分支：
-   \`${BRANCH}\`
+   \`${branch}\`
 
-3. 本脚本已尝试为所有可访问的 submodule 以同名基线分支 \`${BASE_BRANCH}\` 创建/切换分支 \`${BRANCH}\`：
+3. 本脚本已尝试为所有可访问的 submodule 以同名基线分支 \`${BASE_BRANCH}\` 创建/切换分支 \`${branch}\`：
    - 若子仓存在 \`origin/${BASE_BRANCH}\` 或本地 \`${BASE_BRANCH}\`，则基于该分支创建；
    - 若子仓不存在该分支，则保持当前分支/commit 不变并打印提示。
 
@@ -204,7 +214,7 @@ EOF
    git status
    git diff
    git commit ...
-   git push origin ${BRANCH}
+   git push origin ${branch}
    \`\`\`
 
 更多规则请参考主仓的 \`AGENTS.md\`。
@@ -214,18 +224,18 @@ EOF
 
 ✅ Agent 仓库已创建并初始化完成。
 
-  仓库目录: ${AGENT_DIR}
-  分支:      ${BRANCH}
+  仓库目录: ${agent_dir}
+  分支:      ${branch}
   基线分支:  ${BASE_BRANCH}
 
 你可以在 Codex / IDE 中将项目根目录设为:
-  ${AGENT_DIR}
+  ${agent_dir}
 
 如需重新初始化 submodule，可在 Agent 仓库根目录执行:
   ./agent_clone.sh
 
 本仓库的元信息保存在:
-  ${AGENT_DIR}/.agent-meta.yml
+  ${agent_dir}/.agent-meta.yml
 
 EOF
 }
@@ -236,6 +246,48 @@ cleanup_agent_repo() {
     echo "提示: 目录不存在，无需清理。"
     exit 0
   fi
+
+  if [[ -z "${AGENT_ROOT:-}" || -z "${AGENT_DIR:-}" ]]; then
+    agent_error "E_AGENT_ROOT_INVALID" "AGENT_ROOT 或 AGENT_DIR 为空，拒绝执行危险删除操作。"
+    exit 1
+  fi
+
+  local root dir
+  root="${AGENT_ROOT%/}"
+  dir="${AGENT_DIR%/}"
+
+  if [[ -z "${root}" || "${root}" == "/" ]]; then
+    agent_error "E_AGENT_ROOT_INVALID" "AGENT_ROOT='${AGENT_ROOT}' 不合法，拒绝执行危险删除操作。"
+    exit 1
+  fi
+
+  case "${dir}" in
+  "${root}/"*)
+    ;;
+  *)
+    agent_error "E_AGENT_ROOT_INVALID" "AGENT_DIR='${AGENT_DIR}' 不在 AGENT_ROOT='${AGENT_ROOT}' 下，拒绝执行危险删除操作。"
+    exit 1
+    ;;
+  esac
+
+  if [[ "${dir}" == "${root}" ]]; then
+    agent_error "E_AGENT_ROOT_INVALID" "AGENT_DIR 与 AGENT_ROOT 相同，拒绝删除整个 Agent 根目录。"
+    exit 1
+  fi
+
+  if [[ "${CLEANUP_FORCE:-0}" -ne 1 ]]; then
+    local answer
+    read -r -p "确认要删除 Agent 仓库目录 ${AGENT_DIR}? [y/N] " answer
+    case "${answer}" in
+    y | Y | yes | YES)
+      ;;
+    *)
+      echo "已取消删除。"
+      exit 0
+      ;;
+    esac
+  fi
+
   rm -rf "${AGENT_DIR}"
   echo "🧹 已删除 Agent 仓库目录: ${AGENT_DIR}"
 }
