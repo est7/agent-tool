@@ -11,6 +11,7 @@ set -euo pipefail
 # ═══════════════════════════════════════════════════════════════════════════════
 
 AI_HOME="${AI_HOME:-${HOME}/.agents}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 # 颜色
 RED='\033[0;31m'
@@ -196,7 +197,6 @@ EOF
 - 各种 Slash 命令 / Prompt 模板：commands/
 - 各种 Skill 定义：skills/
 - MCP 配置 Snippet：mcp/
-- Bootstrap 脚本：bootstrap/
 
 目前主要面向三套工具：
 
@@ -229,16 +229,12 @@ $AI_HOME
 │   ├── claude.json.snippet   # Claude 用的 .mcp.json 片段（不含密钥）
 │   ├── gemini.json.snippet   # Gemini 用的 settings.json 片段（不含密钥）
 │   └── codex.toml.snippet    # Codex 用的 config.toml 片段（只放 [mcp_servers.*]）
-├── bootstrap/
-│   ├── install_symlinks.sh   # 全局初始化脚本（软链接 + 目录结构）
-│   ├── project_mcp_setup.sh  # 在项目根下生成项目级 MCP 配置
-│   └── self_test.sh          # 自检脚本，检查 $AI_HOME 与关键软链接
 └── .mcp.json                 # 把 $AI_HOME 本身当成一个“项目”时的 MCP 配置骨架
 ````
 
 ---
 
-## 三件套脚本说明
+## 三件套脚本说明（脚本位于 ~/scripts/agent-tool/cfg 和 doctor）
 
 ### 1. 全局初始化：install_symlinks.sh
 
@@ -262,16 +258,16 @@ $AI_HOME
 
 ```bash
 # 只看看会做什么（推荐新机器先这样跑一遍）
-${AI_HOME}/bootstrap/install_symlinks.sh -n -v
+~/scripts/agent-tool/cfg/install_symlinks.sh -n -v
 
 # 实际执行全局初始化（新机器第一次）
-${AI_HOME}/bootstrap/install_symlinks.sh -v
+~/scripts/agent-tool/cfg/install_symlinks.sh -v
 
 # 如果某些路径已被手工文件占用，且你确认要用统一配置目录接管：
-${AI_HOME}/bootstrap/install_symlinks.sh -v --force
+~/scripts/agent-tool/cfg/install_symlinks.sh -v --force
 
 # 想撤销（只移除由本脚本创建的软链接，不删真实目录/文件）
-${AI_HOME}/bootstrap/install_symlinks.sh -u -v
+~/scripts/agent-tool/cfg/install_symlinks.sh -u -v
 ```
 
 ### 2. 项目级 MCP：project_mcp_setup.sh
@@ -288,7 +284,7 @@ ${AI_HOME}/bootstrap/install_symlinks.sh -u -v
 
 ```bash
 cd /path/to/your/project
-${AI_HOME}/bootstrap/project_mcp_setup.sh -v
+~/scripts/agent-tool/cfg/project_mcp_setup.sh -v
 ```
 
 ### 3. 自检：cfg_doctor.sh
@@ -304,7 +300,7 @@ ${AI_HOME}/bootstrap/project_mcp_setup.sh -v
 示例：
 
 ```bash
-${AI_HOME}/bootstrap/self_test.sh -v
+~/scripts/agent-tool/doctor/cfg_doctor.sh -v
 ```
 
 ---
@@ -320,21 +316,21 @@ ${AI_HOME}/bootstrap/self_test.sh -v
 2. 全局初始化：
 
    ```bash
-   ~/.agents/bootstrap/install_symlinks.sh -n -v
-   ~/.agents/bootstrap/install_symlinks.sh -v
+   ~/scripts/agent-tool/cfg/install_symlinks.sh -n -v
+   ~/scripts/agent-tool/cfg/install_symlinks.sh -v
    ```
 
 3. 针对常用项目，在项目根目录生成项目级 MCP 配置：
 
    ```bash
    cd ~/workspace/your-project
-   ~/.agents/bootstrap/project_mcp_setup.sh -v
+   ~/scripts/agent-tool/cfg/project_mcp_setup.sh -v
    ```
 
 4. 最后跑一次自检确认整体环境健康：
 
    ```bash
-   ~/.agents/bootstrap/self_test.sh -v
+   ~/scripts/agent-tool/doctor/cfg_doctor.sh -v
    ```
 
 EOF
@@ -360,15 +356,23 @@ ensure_dir "${AI_HOME}/hooks/claude"
 ensure_dir "${AI_HOME}/agents/claude"
 
 ensure_dir "${AI_HOME}/mcp"
-ensure_dir "${AI_HOME}/bootstrap"
 
-# 示例命令：/review
+  # 示例命令：/review（优先从模板目录复制）
 
-if [[ ! -f "${AI_HOME}/commands/shared/review.md" ]]; then
-if $DRY_RUN; then
-log_verbose "将创建示例命令: commands/shared/review.md"
-else
-cat > "${AI_HOME}/commands/shared/review.md" <<'EOF'
+  if [[ ! -f "${AI_HOME}/commands/shared/review.md" ]]; then
+    local review_template="${SCRIPT_DIR}/templates/commands/shared/review.md"
+    if [[ -f "${review_template}" ]]; then
+      if $DRY_RUN; then
+        log_verbose "将从模板复制示例命令: ${review_template} -> ${AI_HOME}/commands/shared/review.md"
+      else
+        cp "${review_template}" "${AI_HOME}/commands/shared/review.md"
+        log_verbose "已从模板复制示例命令: review.md"
+      fi
+    else
+      if $DRY_RUN; then
+        log_verbose "未找到 review 模板，将使用内联默认内容创建示例命令: commands/shared/review.md"
+      else
+        cat > "${AI_HOME}/commands/shared/review.md" <<'EOF'
 
 # review
 
@@ -384,72 +388,28 @@ cat > "${AI_HOME}/commands/shared/review.md" <<'EOF'
   * 性能风险（明显的 N+1、主线程重活等）
 * 给出「最小可审阅 diff」建议，而不是大面积重写。
 * 最后用一句话总结风险等级：low / medium / high，并给出理由。
-  EOF
-  log_verbose "已创建示例命令: review.md"
-  fi
+EOF
+        log_verbose "已创建示例命令: review.md"
+      fi
+    fi
   fi
 
-  # 示例 Skill：android-refactor
+  # 示例 Skill：android-refactor（从模板目录复制）
 
   local skill_dir="${AI_HOME}/skills/shared/android-refactor"
-  ensure_dir "$skill_dir"
-  ensure_dir "${skill_dir}/scripts"
+  local template_skill_dir="${SCRIPT_DIR}/templates/skills/android-refactor"
 
-  if [[ ! -f "${skill_dir}/SKILL.md" ]]; then
+  if [[ -d "${template_skill_dir}" ]]; then
+  ensure_dir "${skill_dir}"
   if $DRY_RUN; then
-  log_verbose "将创建示例 Skill: skills/shared/android-refactor/SKILL.md"
+  log_verbose "将从模板复制示例 Skill: ${template_skill_dir} -> ${skill_dir}"
   else
-  cat > "${skill_dir}/SKILL.md" <<'EOF'
-
----
-
-name: android-refactor
-description: "为 Android 多模块项目提供一致的重构建议。"
-tags:
-
-* android
-* kotlin
-  entrypoint:
-  shell: "./scripts/run.sh"
-  supports:
-* claude
-* codex
-
----
-
-# 目标
-
-* 强化 Android 多模块项目中的模块边界一致性。
-* 按照你的全局架构规则（见 AGENTS.md）提出重构建议。
-
-# 使用方式
-
-* 在 Claude Code 中：
-
-  * 例如提示："请使用 android-refactor 这个 skill，帮我检查模块划分和依赖。"
-* 在 Codex 中：
-
-  * 触发 android-refactor skill，让它给出重构思路和迁移步骤。
-    EOF
-    log_verbose "已创建示例 SKILL.md: android-refactor"
-    fi
-    fi
-
-  if [[ ! -f "${skill_dir}/scripts/run.sh" ]]; then
-  if $DRY_RUN; then
-  log_verbose "将创建示例脚本: skills/shared/android-refactor/scripts/run.sh"
+  cp -R "${template_skill_dir}/." "${skill_dir}/"
+  log_verbose "已从模板复制示例 Skill: android-refactor"
+  fi
   else
-  cat > "${skill_dir}/scripts/run.sh" <<'EOF'
-  #!/usr/bin/env bash
-  set -euo pipefail
-
-echo "[android-refactor] 这是一个占位脚本。"
-echo "你可以在这里实现真正的重构工具，例如扫描 Gradle 依赖、生成报告等。"
-EOF
-chmod +x "${skill_dir}/scripts/run.sh"
-log_verbose "已创建占位脚本: android-refactor/scripts/run.sh"
-fi
-fi
+  log_verbose "未找到 android-refactor 模板目录: ${template_skill_dir}，跳过示例 Skill 初始化"
+  fi
 
 # MCP snippet 占位文件（不含密钥）
 

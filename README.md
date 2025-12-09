@@ -13,34 +13,47 @@
 
 ## 基础命令
 
-- `./agent-tool.sh ws <subcommand> [...]`  
-  workspace 分组入口，所有 Agent 工作区相关操作都挂在 `ws` 之下。
+- `./agent-tool.sh help [group]`  
+  显示整体或某个分组的帮助（group 可为 `cfg/ws/test/build/run/doctor` 等）。
 - `./agent-tool.sh cfg <subcommand> [...]`  
-  针对统一配置目录的快捷操作（软链刷新、自检、生成 MCP 等）。
+  针对统一配置目录的快捷操作（软链刷新、自检、生成 MCP 等）。  
+  仅输入 `./agent-tool.sh cfg` 时会输出 cfg 子命令帮助。
+- `./agent-tool.sh ws <subcommand> [...]`  
+  workspace 分组入口，所有 Agent 工作区相关操作都挂在 `ws` 之下。  
+  仅输入 `./agent-tool.sh ws` 时会输出 workspace 子命令帮助。
+- `./agent-tool.sh dev <subcommand> [...]`  
+  预留：开发期流程/规范/模板（当前未实现）。
+- `./agent-tool.sh test <platform> <kind> [-- <args...>]`  
+  项目级测试入口，用于统一执行各平台的单元测试和覆盖率任务。  
+  仅输入 `./agent-tool.sh test` 或加 `-h/--help` 会输出 test 子命令帮助。
+- `./agent-tool.sh build <platform> [--run] [-- <args...>]`  
+  在当前仓库中执行对应平台的构建逻辑。  
+  仅输入 `./agent-tool.sh build` 或加 `-h/--help` 会输出 build 子命令帮助。
+- `./agent-tool.sh run <platform> [-- <args...>]`  
+  便捷运行, 等价于: `build <platform> --run [-- <args...>]`。  
+  仅输入 `./agent-tool.sh run` 或加 `-h/--help` 会输出 run 子命令帮助。
+- `./agent-tool.sh doctor <target>`  
+  检查当前仓库针对平台的构建环境，或对 CLI 自身做自检。  
+  仅输入 `./agent-tool.sh doctor` 或加 `-h/--help` 会输出 doctor 子命令帮助。
 
 参数约定:
 
 - `<type>`: `feat | bugfix | refactor | chore | exp`
 - `<scope>`: 任务范围, 使用 kebab-case, 例如: `user-profile-header`
-- `ws` 子命令:
-  - `ws create [--base-branch <branch>] <type> <scope>`
-  - `ws cleanup --force <type> <scope>`   # 危险: 删除 agent workspace 目录
-  - `ws list`
-  - `ws status`
 - `cfg` 子命令:
   - `cfg init` / `cfg init-force`: 运行 `cfg/install_symlinks.sh -v [--force]`
   - `cfg refresh`: 刷新文件级软链（新增 commands/skills/hooks/agents 后用）
   - `cfg selftest [--v]`: 自检配置目录与软链状态
   - `cfg mcp [options]`: 在项目根生成项目级 MCP 配置（透传选项到 `project_mcp_setup.sh`）
+ - `ws` 子命令:
+  - `ws create [--base-branch <branch>] <type> <scope>`
+  - `ws cleanup --force <type> <scope>`   # 危险: 删除 agent workspace 目录
+  - `ws list`
+  - `ws status`
 
 ## 构建与运行命令
 
 本工具内置了针对常见平台的构建/运行流程, 不需要在项目中额外创建脚本文件:
-
-- `./agent-tool.sh build <platform> [--run] [-- <args...>]`  
-  在当前仓库中执行对应平台的构建逻辑（必须显式指定 `<platform>`）。
-- `./agent-tool.sh run <platform> [-- <args...>]`  
-  便捷运行, 等价于: `build <platform> --run [-- <args...>]`（同样需要显式指定 `<platform>`）。
 
 支持的平台与行为概要:
 
@@ -69,7 +82,97 @@
   - 构建并运行: `./agent-tool.sh build web --run`
   - 便捷运行: `./agent-tool.sh run web`
 
-> 注意：`build` / `run` 必须显式指定 `<platform>`，不再支持省略后自动检测平台。
+> 注意：`build` / `run` 在真正执行构建/运行时仍需要显式指定 `<platform>`；  
+> 若未指定，则被视为查看该子命令的帮助，而不会尝试自动检测平台。
+
+## 项目测试命令
+
+- `./agent-tool.sh test <platform> <kind> [-- <args...>]`  
+  在当前仓库中执行对应平台的测试逻辑。
+
+platform:
+- `android`：通过 `./gradlew` 运行 Android 测试。
+- `ios`：通过 `tuist test` 运行 iOS 测试（依赖 `.agent-build.yml` 中的 `ios_scheme` 或命令行显式传入）。
+- `web`：通过 `pnpm` / `yarn` / `npm` 运行 Web 测试。
+
+kind:
+- `unit`：运行单元测试。
+- `coverage`：运行覆盖率相关任务（具体命令视平台和项目而定）。
+
+示例:
+
+- Android:
+  - 单元测试（默认任务）:  
+    `./agent-tool.sh test android unit` → `./gradlew test`
+  - 单元测试（自定义任务）:  
+    `./agent-tool.sh test android unit -- testDebugUnitTest`
+  - 覆盖率（默认任务）:  
+    `./agent-tool.sh test android coverage` → `./gradlew jacocoTestReport`
+  - 覆盖率（自定义任务）:  
+    `./agent-tool.sh test android coverage -- jacocoMyModuleReport`
+
+- iOS:
+  - 单元测试（从 `.agent-build.yml` 读取 `ios_scheme`）:  
+    `./agent-tool.sh test ios unit`
+  - 单元测试（显式指定 scheme）:  
+    `./agent-tool.sh test ios unit MyAppScheme`
+  - 覆盖率:  
+    `./agent-tool.sh test ios coverage MyAppScheme -- --configuration Debug`  
+    > 覆盖率开关由 Xcode/Tuist 工程配置控制，本命令只负责调用 `tuist test`。
+
+- Web:
+  - 单元测试:  
+    `./agent-tool.sh test web unit` → `pnpm/yarn/npm test`
+  - 覆盖率（假设使用支持 `--coverage` 的测试框架，如 Jest）:  
+    `./agent-tool.sh test web coverage` → `pnpm/yarn/npm test -- --coverage`
+
+## 推荐开发流程（Android 示例）
+
+以下是一个从「初始化配置」到「构建/测试/自检」的完整工作流示例：
+
+1. 在新机器上初始化统一配置目录（仅需执行一次）：
+
+   ```bash
+   ./agent-tool.sh cfg init
+   ```
+
+2. 在主仓中为当前需求创建 Agent workspace：
+
+   ```bash
+   ./agent-tool.sh ws create feat user-profile-header
+   ```
+
+3. 在主仓根目录根据需要配置 `.agent-build.yml`（可选），例如：
+
+   ```yaml
+   android_package: com.myapp
+   android_default_variant: Debug
+   ios_scheme: MyAppScheme
+   ```
+
+4. 在主仓根目录执行构建（以 Android 为例）：
+
+   ```bash
+   ./agent-tool.sh build android com.myapp Debug
+   ```
+
+5. 在主仓根目录运行项目级单元测试：
+
+   ```bash
+   ./agent-tool.sh test android unit
+   ```
+
+6. 检查当前仓库的 Android 构建环境（可选）：
+
+   ```bash
+   ./agent-tool.sh doctor android
+   ```
+
+7. 需求完成后，清理对应的 Agent workspace（在主仓根目录执行）：
+
+   ```bash
+   ./agent-tool.sh ws cleanup --force feat user-profile-header
+   ```
 
 ## 平台参数约定
 
@@ -155,7 +258,8 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 
 - `./agent-tool.sh doctor <platform>`
 
-用途: 快速检查当前仓库是否已经为指定平台准备好必要的工程结构与关键工具链。
+用途: 快速检查当前仓库是否已经为指定平台准备好必要的工程结构与关键工具链。  
+仅输入 `./agent-tool.sh doctor` 或加 `-h/--help` 会输出 doctor 子命令帮助。
 额外检查: 自动调用 `doctor/cfg_doctor.sh` 执行统一配置目录（AI_HOME）软链与目录自检。
 
 检查内容 (不会修改任何文件, 仅输出信息):
@@ -206,7 +310,7 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 
 - 语法检查: `bash -n agent-tool.sh`
 - 静态分析 (可选): `shellcheck agent-tool.sh`
-- 自检: `./agent-tool.sh test self`（对核心脚本执行一次 `bash -n`）
+- CLI 自检: `./agent-tool.sh doctor cli`（对核心脚本执行一次 `bash -n`）
 
 ## 全局配置文件 (~/.agent-tool/config)
 
