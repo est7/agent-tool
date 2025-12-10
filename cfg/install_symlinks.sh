@@ -766,6 +766,14 @@ fi
 
 safe_link "${AGENT_HOME}/AGENTS.md" "$gemini_home/AGENTS.md"
 
+# Commands: shared + gemini-only
+
+if ! $DRY_RUN; then
+mkdir -p "$gemini_home/commands"
+fi
+link_dir_contents "${AGENT_HOME}/commands/shared" "$gemini_home/commands" "*.md"
+link_dir_contents "${AGENT_HOME}/commands/gemini-only" "$gemini_home/commands" "*.md"
+
 if [[ -f "${AGENT_HOME}/mcp/gemini.json.snippet" ]]; then
 log_verbose "提示: Gemini MCP snippet 位于 ${AGENT_HOME}/mcp/gemini.json.snippet，可配合 project_mcp_setup.sh 在项目层使用。"
 fi
@@ -808,6 +816,7 @@ remove_links_pointing_to_ai "${HOME}/.claude/output-styles"
 remove_links_pointing_to_ai "${HOME}/.claude/skills"
 remove_links_pointing_to_ai "${HOME}/.codex/prompts"
 remove_links_pointing_to_ai "${HOME}/.codex/skills"
+remove_links_pointing_to_ai "${HOME}/.gemini/commands"
 
 log_success "卸载完成（只移除了指向 AGENT_HOME 的软链接，未删除任何真实目录/文件）。"
 }

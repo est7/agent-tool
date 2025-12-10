@@ -155,6 +155,8 @@ claude mcp add-from-claude-desktop
 
 ### Sequential Thinking
 
+任务分解、方案评估、风险识别。
+
 ```json
 {
   "mcpServers": {
@@ -167,7 +169,24 @@ claude mcp add-from-claude-desktop
 }
 ```
 
+### Exa
+
+高质量代码上下文搜索、技术文档检索。使用 mcp-remote 连接。
+
+```json
+{
+  "mcpServers": {
+    "exa-mcp": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.exa.ai/mcp"]
+    }
+  }
+}
+```
+
 ### Memory
+
+跨会话持久化知识图谱，记录用户偏好和项目约定。
 
 ```json
 {
@@ -176,6 +195,32 @@ claude mcp add-from-claude-desktop
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-memory"]
+    }
+  }
+}
+```
+
+### Async MCP (跨 Agent 协作)
+
+允许不同 Agent CLI 之间互相调用。
+
+```json
+{
+  "mcpServers": {
+    "claudecode-mcp-async": {
+      "command": "uvx",
+      "args": ["claudecode-mcp-async"],
+      "env": {}
+    },
+    "codex-mcp-async": {
+      "command": "uvx",
+      "args": ["codex-mcp-async"],
+      "env": {}
+    },
+    "gemini-cli-mcp-async": {
+      "command": "uvx",
+      "args": ["gemini-cli-mcp-async"],
+      "env": {}
     }
   }
 }

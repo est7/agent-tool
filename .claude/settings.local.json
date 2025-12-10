@@ -9,7 +9,17 @@
       "WebSearch",
       "WebFetch(domain:docs.claude.com)",
       "Bash(/Volumes/other/JetbrainsProjects/agent-tool/agent-tool.sh cfg refresh:*)",
-      "Bash(~/.claude/skills/sayhello/scripts/run.sh)"
+      "Bash(~/.claude/skills/sayhello/scripts/run.sh)",
+      "WebFetch(domain:docs.exa.ai)",
+      "mcp__exa-mcp__web_search_exa"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "claudecode-mcp-async",
+    "codex-mcp-async",
+    "exa-mcp",
+    "gemini-cli-mcp-async",
+    "memory",
+    "sequential-thinking"
+  ]
 }
