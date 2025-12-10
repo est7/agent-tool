@@ -561,7 +561,7 @@ configure_gemini_1mcp() {
   "contextFileName": ["AGENTS.md", "GEMINI.md"],
   "mcpServers": {
     "1mcp": {
-      "url": "${ONEMCP_URL}"
+      "httpUrl": "${ONEMCP_URL}"
     }
   }
 }
@@ -575,7 +575,7 @@ EOF
     local tmp="${settings}.tmp.$$"
     jq --arg url "$ONEMCP_URL" '
       .mcpServers = (.mcpServers // {}) |
-      .mcpServers["1mcp"] = { "url": $url }
+      .mcpServers["1mcp"] = { "httpUrl": $url }
     ' "$settings" > "$tmp" && mv "$tmp" "$settings"
     log_verbose "已更新 Gemini settings.json 中的 1mcp 配置"
   else

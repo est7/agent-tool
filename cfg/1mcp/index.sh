@@ -49,7 +49,7 @@ show_1mcp_help() {
   agent-tool cfg 1mcp <command>
 
 命令:
-  install       安装 1mcp binary 到 ~/.agents/bin/
+  install       安装 1mcp binary 到 ~/.agents/mcp/bin/
   start         启动 1mcp server（后台运行）
   stop          停止 1mcp server
   restart       重启 1mcp server
@@ -215,7 +215,8 @@ cmd_install() {
   local archive_ext="tar.gz"
   local archive_name="1mcp-${platform}.${archive_ext}"
   local download_url="${ONEMCP_RELEASE_BASE}/${archive_name}"
-  local bin_dir="${AGENT_HOME}/bin"
+  local bin_dir
+  bin_dir="$(dirname "$ONEMCP_BIN")"
   local tmp_dir
   tmp_dir=$(mktemp -d)
 
