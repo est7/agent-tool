@@ -435,52 +435,35 @@ ensure_dir "${AGENT_HOME}/agents/claude"
     log_verbose "未找到 output-styles 模板目录: ${output_styles_template_dir}"
   fi
 
-# 生成 1mcp 配置文件 mcp/mcp.json（替代原有 snippet 方案）
+# 生成 1mcp 配置文件 mcp/mcp.json（从模板复制）
 
 ensure_dir "${AGENT_HOME}/mcp"
 
+local mcp_template="${SCRIPT_DIR}/templates/mcp/mcp.json"
+
 if [[ ! -f "${AGENT_HOME}/mcp/mcp.json" ]]; then
-if $DRY_RUN; then
-log_verbose "将创建 ${AGENT_HOME}/mcp/mcp.json"
+  if [[ -f "${mcp_template}" ]]; then
+    if $DRY_RUN; then
+      log_verbose "将从模板复制 mcp.json: ${mcp_template} -> ${AGENT_HOME}/mcp/mcp.json"
+    else
+      cp "${mcp_template}" "${AGENT_HOME}/mcp/mcp.json"
+      log_verbose "已从模板复制 1mcp 配置: ${AGENT_HOME}/mcp/mcp.json"
+    fi
+  else
+    log_warn "未找到 mcp.json 模板: ${mcp_template}，跳过 MCP 配置初始化"
+  fi
+elif $UPGRADE; then
+  # 升级模式下，用模板覆盖
+  if [[ -f "${mcp_template}" ]]; then
+    if $DRY_RUN; then
+      log_verbose "将更新 mcp.json: ${mcp_template} -> ${AGENT_HOME}/mcp/mcp.json"
+    else
+      cp "${mcp_template}" "${AGENT_HOME}/mcp/mcp.json"
+      log_verbose "已更新 1mcp 配置: ${AGENT_HOME}/mcp/mcp.json"
+    fi
+  fi
 else
-cat > "${AGENT_HOME}/mcp/mcp.json" <<'EOF'
-{
-  "mcpServers": {
-    "sequential-thinking": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
-      "tags": ["core", "thinking"]
-    },
-    "exa-mcp": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.exa.ai/mcp"],
-      "tags": ["core", "search"]
-    },
-    "memory": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-memory"],
-      "tags": ["core", "memory"]
-    },
-    "claudecode-mcp-async": {
-      "command": "uvx",
-      "args": ["claudecode-mcp-async"],
-      "tags": ["async", "claude"]
-    },
-    "codex-mcp-async": {
-      "command": "uvx",
-      "args": ["codex-mcp-async"],
-      "tags": ["async", "codex"]
-    },
-    "gemini-cli-mcp-async": {
-      "command": "uvx",
-      "args": ["gemini-cli-mcp-async"],
-      "tags": ["async", "gemini"]
-    }
-  }
-}
-EOF
-log_verbose "已创建 1mcp 配置: ${AGENT_HOME}/mcp/mcp.json"
-fi
+  log_verbose "mcp.json 已存在，跳过（使用 --upgrade 可强制更新）"
 fi
 
 # 注意：mcp/bin/ 和 mcp/logs/ 目录由 1mcp install/start 命令按需创建

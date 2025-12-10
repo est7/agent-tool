@@ -619,7 +619,7 @@ cmd_init_project() {
         echo ""
         echo "预设说明:"
         echo "  all        全部 6 个 MCP servers"
-        echo "  core       核心 servers（sequential-thinking, exa-mcp, memory）"
+        echo "  core       核心 servers（sequential-thinking, context7, memory）"
         echo "  agent-cli  跨 CLI 协作（claudecode/codex/gemini-cli-mcp-async）"
         return 0
         ;;

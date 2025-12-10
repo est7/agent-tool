@@ -337,7 +337,7 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
          │                      │                      │
          ▼                      ▼                      ▼
    ┌───────────┐        ┌───────────┐        ┌───────────┐
-   │ sequential│        │  exa-mcp  │        │  memory   │
+   │ sequential│        │  context7 │        │  memory   │
    │ -thinking │        │           │        │           │
    └───────────┘        └───────────┘        └───────────┘
 ```
@@ -420,12 +420,12 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 
 | Server | 标签 | 说明 |
 |--------|------|------|
-| `sequential-thinking` | core, thinking | 结构化思考 |
-| `exa-mcp` | core, search | 代码搜索 |
-| `memory` | core, memory | 知识图谱 |
-| `claudecode-mcp-async` | async, claude | Claude Code 异步调用 |
-| `codex-mcp-async` | async, codex | Codex CLI 异步调用 |
-| `gemini-cli-mcp-async` | async, gemini | Gemini CLI 异步调用 |
+| `sequential-thinking` | core, all | 结构化思考 |
+| `context7` | core, all, search | 库/框架文档查询 |
+| `memory` | core, all | 知识图谱 |
+| `claudecode-mcp-async` | agent-cli, all | Claude Code 异步调用 |
+| `codex-mcp-async` | agent-cli, all | Codex CLI 异步调用 |
+| `gemini-cli-mcp-async` | agent-cli, all | Gemini CLI 异步调用 |
 
 ## 开发与校验
 
