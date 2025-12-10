@@ -124,6 +124,7 @@ cfg 子命令:
   cfg refresh           # 新增 commands/skills/hooks/agents 后刷新软链 (-U)
   cfg selftest [--v]    # 自检配置目录及软链状态
   cfg mcp [options]     # 在项目根生成 MCP 配置 (透传选项至 project_mcp_setup.sh)
+  cfg 1mcp <command>    # 管理 1mcp 统一 MCP 网关 (install|start|stop|status|...)
 EOF
     ;;
   ws)
@@ -338,9 +339,18 @@ cfg_command() {
     shift || true
     run_cfg_script "project_mcp_setup.sh" "$@"
     ;;
+  1mcp)
+    shift || true
+    local onemcp_script="${CFG_DIR}/1mcp/index.sh"
+    if [[ ! -x "$onemcp_script" ]]; then
+      agent_error "E_CFG_SCRIPT_NOT_FOUND" "找不到 1mcp 脚本: $onemcp_script"
+      exit 1
+    fi
+    "$onemcp_script" "$@"
+    ;;
   *)
     agent_error "E_SUBCOMMAND_UNKNOWN" "未知 cfg 子命令: ${sub}"
-    echo "可用: init | init-force | refresh | selftest | mcp"
+    echo "可用: init | init-force | refresh | selftest | mcp | 1mcp"
     exit 1
     ;;
   esac

@@ -5,19 +5,19 @@ set -euo pipefail
 # ~/scripts/agent-tool/cfg/project_mcp_setup.sh
 #
 # 用途：
-#   在「项目根目录」下运行，用统一配置目录（AGENT_HOME）下的 mcp snippet 生成项目级 MCP 配置：
+#   在「项目根目录」下运行，生成 1mcp 项目级配置文件 .1mcprc
 #
-#     Claude Code : .mcp.json
-#     Gemini CLI  : .gemini/settings.json
-#     Codex CLI   : .codex/config.toml  （配合项目内 CODEX_HOME=./.codex 使用）
+#   .1mcprc 允许为不同项目配置不同的 MCP server 子集（通过 preset 或 tags 过滤）
 #
 # 设计原则：
-#   - 不修改系统级配置 ( ~/.claude.json / ~/.gemini/settings.json / ~/.codex/config.toml )
-#   - MCP 行为主要由项目内文件控制，可进 Git 管理
+#   - 使用 1mcp 作为统一 MCP 网关
+#   - 项目级 .1mcprc 可进 Git 管理
+#   - 全局 MCP servers 配置在 ~/.agents/mcp.json
 # ═══════════════════════════════════════════════════════════════════════════════
 
 AGENT_HOME="${AGENT_HOME:-${HOME}/.agents}"
 PROJECT_ROOT="${PWD}"
+ONEMCP_CONFIG="${AGENT_HOME}/mcp.json"
 
 # 颜色
 RED='\033[0;31m'
@@ -29,9 +29,8 @@ NC='\033[0m'
 # 标志位
 DRY_RUN=false
 VERBOSE=false
-DO_CLAUDE=false
-DO_GEMINI=false
-DO_CODEX=false
+PRESET=""
+TAGS=""
 
 log_info()    { echo -e "${BLUE}[*]${NC} $1"; }
 log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
@@ -45,166 +44,109 @@ usage() {
 
 说明:
   在【项目根目录】中运行本脚本。
-  它会基于 $AGENT_HOME/mcp 下的 snippet 生成项目级的 MCP 配置文件：
+  生成 1mcp 项目级配置文件 .1mcprc，用于过滤全局 MCP servers。
 
-    Claude : .mcp.json
-    Gemini : .gemini/settings.json
-    Codex  : .codex/config.toml
+生成的文件:
+  .1mcprc         1mcp 项目配置（JSON 格式）
 
 选项:
-  --claude        只配置 Claude (.mcp.json)
-  --gemini        只配置 Gemini (.gemini/settings.json)
-  --codex         只配置 Codex (.codex/config.toml)
+  --preset NAME   使用预设名称（如果已在 1mcp 中配置了 preset）
+  --tags EXPR     标签过滤表达式（如 "core OR async"）
   -n, --dry-run   只显示将要执行的操作，不实际写入
   -v, --verbose   显示详细输出
   -h, --help      显示本帮助信息
+
+示例:
+  $(basename "$0")                      # 生成默认 .1mcprc（使用所有 MCP servers）
+  $(basename "$0") --tags "core"        # 只使用带 core 标签的 servers
+  $(basename "$0") --preset web-dev     # 使用名为 web-dev 的预设
 
 环境变量:
   AGENT_HOME      统一配置仓库路径 (默认: ~/.agents)
 
 提示:
-  • Codex: 需要在项目中把 CODEX_HOME 指向 ./.codex
-    建议用 direnv/mise 等工具设置，而不是全局写死环境变量。
+  • 全局 MCP servers 配置在 $AGENT_HOME/mcp.json
+  • 使用 'agent-tool cfg 1mcp status' 查看 1mcp 状态
+  • 使用 'agent-tool cfg 1mcp start' 启动 1mcp server
 EOF
   exit 0
 }
 
-ensure_dir() {
-  local dir="$1"
-  if [[ -d "$dir" ]]; then
-    log_verbose "目录已存在: $dir"
-  else
-    if $DRY_RUN; then
-      log_verbose "将创建目录: $dir"
-    else
-      mkdir -p "$dir"
-      log_verbose "已创建目录: $dir"
-    fi
-  fi
-}
-
 # ─────────────────────────────────────────────────────────────────────────────
-# Claude: .mcp.json ← $AGENT_HOME/mcp/claude.json.snippet
+# 生成 .1mcprc 配置文件
 # ─────────────────────────────────────────────────────────────────────────────
 
-setup_claude_project_mcp() {
-  local snippet="${AGENT_HOME}/mcp/claude.json.snippet"
-  local target="${PROJECT_ROOT}/.mcp.json"
+setup_1mcprc() {
+  local target="${PROJECT_ROOT}/.1mcprc"
 
-  log_info "配置 Claude 项目级 MCP (.mcp.json)…"
+  log_info "配置 1mcp 项目级配置 (.1mcprc)…"
 
-  if [[ ! -f "$snippet" ]]; then
-    log_warn "未找到 snippet 文件: $snippet，跳过 Claude"
-    return 0
+  # 检查全局配置是否存在
+  if [[ ! -f "$ONEMCP_CONFIG" ]]; then
+    log_warn "未找到全局 MCP 配置: $ONEMCP_CONFIG"
+    log_warn "请先运行 'agent-tool cfg init' 初始化配置"
+    return 1
   fi
 
+  # 检查是否已存在
   if [[ -f "$target" ]]; then
-    log_warn "项目中已存在 .mcp.json，保持不变: $target"
-    log_warn "→ 如果你想统一使用 $AGENT_HOME 的定义，可以手动用 jq merge 或直接覆盖。"
+    log_warn "项目中已存在 .1mcprc，保持不变: $target"
+    log_warn "→ 如需更新，请手动编辑或删除后重新生成。"
     return 0
   fi
 
-  if $DRY_RUN; then
-    log_verbose "将复制 $snippet -> $target"
-  else
-    cp "$snippet" "$target"
-    log_verbose "已复制 $snippet -> $target"
-  fi
+  # 构建配置内容
+  local config_content
 
-  log_success "Claude 项目 MCP 已配置: $target"
+  if [[ -n "$PRESET" ]]; then
+    # 使用 preset 模式
+    config_content=$(cat <<EOF
+{
+  "preset": "${PRESET}"
 }
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Gemini: .gemini/settings.json ← $AGENT_HOME/mcp/gemini.json.snippet
-# ─────────────────────────────────────────────────────────────────────────────
-
-setup_gemini_project_mcp() {
-  local snippet="${AGENT_HOME}/mcp/gemini.json.snippet"
-  local dir="${PROJECT_ROOT}/.gemini"
-  local target="${dir}/settings.json"
-
-  log_info "配置 Gemini 项目级 MCP (.gemini/settings.json)…"
-
-  if [[ ! -f "$snippet" ]]; then
-    log_warn "未找到 snippet 文件: $snippet，跳过 Gemini"
-    return 0
-  fi
-
-  ensure_dir "$dir"
-
-  if [[ -f "$target" ]]; then
-    log_warn "$target 已存在，保持不变。"
-    log_warn "→ 建议手动把 $snippet 中的 mcpServers 合并进现有 settings.json，避免覆盖其他设置。"
-    return 0
-  fi
-
-  if $DRY_RUN; then
-    log_verbose "将复制 $snippet -> $target"
-  else
-    cp "$snippet" "$target"
-    log_verbose "已复制 $snippet -> $target"
-  fi
-
-  log_success "Gemini 项目 MCP 已配置: $target"
-  log_warn   "注意：请在 snippet 中通过环境变量引用密钥，不要直接写入明文 token。"
+EOF
+)
+  elif [[ -n "$TAGS" ]]; then
+    # 使用 tags 过滤模式
+    config_content=$(cat <<EOF
+{
+  "filter": "${TAGS}"
 }
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Codex: .codex/config.toml ← $AGENT_HOME/mcp/codex.toml.snippet
-# ─────────────────────────────────────────────────────────────────────────────
-
-setup_codex_project_mcp() {
-  local snippet="${AGENT_HOME}/mcp/codex.toml.snippet"
-  local dir="${PROJECT_ROOT}/.codex"
-  local target="${dir}/config.toml"
-  local marker="# BEGIN AGENT_HOME MCP snippet"
-
-  log_info "配置 Codex 项目级 MCP (.codex/config.toml)…"
-
-  if [[ ! -f "$snippet" ]]; then
-    log_warn "未找到 snippet 文件: $snippet，跳过 Codex"
-    return 0
+EOF
+)
+  else
+    # 默认：使用所有 servers（空配置或注释说明）
+    config_content=$(cat <<'EOF'
+{
+  "_comment": "1mcp 项目配置 - 由 agent-tool 生成",
+  "_docs": "https://docs.1mcp.app/guide/quick-start"
+}
+EOF
+)
   fi
-
-  ensure_dir "$dir"
 
   if $DRY_RUN; then
-    if [[ -f "$target" ]]; then
-      if grep -Fq "$marker" "$target"; then
-        log_verbose "config.toml 中已经存在 AGENT_HOME MCP snippet 标记: $target"
-      else
-        log_verbose "将把 $snippet 追加到 $target（带标记）"
-      fi
-    else
-      log_verbose "将创建 $target，并填入 $snippet 的内容（带标记）"
-    fi
-    return 0
-  fi
-
-  if [[ ! -f "$target" ]]; then
-    {
-      echo "$marker"
-      cat "$snippet"
-      echo "# END AGENT_HOME MCP snippet"
-    } > "$target"
-    log_verbose "已创建 $target 并写入 MCP snippet"
+    log_verbose "将创建 $target，内容如下:"
+    echo "$config_content"
   else
-    if grep -Fq "$marker" "$target"; then
-      log_verbose "$target 中已存在 AGENT_HOME MCP snippet 标记，跳过追加"
-    else
-      {
-        echo ""
-        echo "$marker"
-        cat "$snippet"
-        echo "# END AGENT_HOME MCP snippet"
-      } >> "$target"
-      log_verbose "已将 MCP snippet 从 $snippet 追加到 $target"
-    fi
+    echo "$config_content" > "$target"
+    log_verbose "已创建 $target"
   fi
 
-  log_success "Codex 项目 MCP 已配置: $target"
-  log_warn   "要让 Codex 使用项目配置，请在本项目中设置: CODEX_HOME=./.codex"
-  log_warn   "推荐用 direnv/mise 管理，而不是在全局 shell 里硬改环境变量。"
+  log_success "1mcp 项目配置已生成: $target"
+
+  # 提示信息
+  echo ""
+  log_info "配置说明:"
+  echo "  • .1mcprc 用于过滤全局 MCP servers"
+  echo "  • 全局配置: $ONEMCP_CONFIG"
+  echo ""
+  log_info "可用的过滤方式:"
+  echo "  • preset: 使用预定义的服务器集合"
+  echo "  • filter: 使用标签表达式（如 \"core AND NOT async\"）"
+  echo ""
+  log_info "确保 1mcp server 正在运行:"
+  echo "  agent-tool cfg 1mcp start"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -215,9 +157,22 @@ main() {
   # 解析参数
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --claude) DO_CLAUDE=true ;;
-      --gemini) DO_GEMINI=true ;;
-      --codex)  DO_CODEX=true ;;
+      --preset)
+        shift
+        PRESET="${1:-}"
+        if [[ -z "$PRESET" ]]; then
+          log_error "--preset 需要指定预设名称"
+          exit 1
+        fi
+        ;;
+      --tags)
+        shift
+        TAGS="${1:-}"
+        if [[ -z "$TAGS" ]]; then
+          log_error "--tags 需要指定标签表达式"
+          exit 1
+        fi
+        ;;
       -n|--dry-run) DRY_RUN=true; VERBOSE=true ;;
       -v|--verbose) VERBOSE=true ;;
       -h|--help)    usage ;;
@@ -229,16 +184,15 @@ main() {
     shift
   done
 
-  # 如果未指定具体工具，默认全开
-  if ! $DO_CLAUDE && ! $DO_GEMINI && ! $DO_CODEX; then
-    DO_CLAUDE=true
-    DO_GEMINI=true
-    DO_CODEX=true
+  # 不能同时指定 preset 和 tags
+  if [[ -n "$PRESET" ]] && [[ -n "$TAGS" ]]; then
+    log_error "不能同时指定 --preset 和 --tags"
+    exit 1
   fi
 
   if [[ ! -d "$AGENT_HOME" ]]; then
     log_error "AGENT_HOME 不存在: $AGENT_HOME"
-    log_error "请先将你的配置仓库放到该路径，或设置 AGENT_HOME 环境变量。"
+    log_error "请先运行 'agent-tool cfg init' 初始化配置。"
     exit 1
   fi
 
@@ -248,10 +202,9 @@ main() {
 
   echo ""
 
-  $DO_CLAUDE && setup_claude_project_mcp && echo ""
-  $DO_GEMINI && setup_gemini_project_mcp && echo ""
-  $DO_CODEX  && setup_codex_project_mcp  && echo ""
+  setup_1mcprc
 
+  echo ""
   log_success "项目级 MCP 配置完成。"
 }
 
