@@ -1,0 +1,38 @@
+# Agent Workspace
+
+本目录是针对任务 **{{type}}/{{scope}}** 的独立 Agent 开发仓库。
+
+- 主仓路径: `{{repo_root}}`
+- Agent 仓库路径: `{{agent_dir}}`
+- 当前 Agent 分支: `{{branch}}`
+- 基线分支: `{{BASE_BRANCH}}`
+- 创建时间(UTC): `{{CREATED_AT}}`
+
+## 使用说明（人类 & Code Agent）
+
+1. 在编辑器 / Codex / 其他 Agent 工具中，将项目根目录设置为本仓库根目录：
+   `{{agent_dir}}`
+
+2. 所有改动请提交到当前分支：
+   `{{branch}}`
+
+3. 本脚本已尝试为所有可访问的 submodule 以同名基线分支 `{{BASE_BRANCH}}` 创建/切换分支 `{{branch}}`：
+   - 若子仓存在 `origin/{{BASE_BRANCH}}` 或本地 `{{BASE_BRANCH}}`，则基于该分支创建；
+   - 若子仓不存在该分支，则保持当前分支/commit 不变并打印提示。
+
+4. 如需重新初始化 submodule，可在本仓库根目录执行：
+
+   ```bash
+   ./agent_clone.sh
+   ```
+
+5. 完成后，由人类在本仓库中整理 commit，并 push 到远端：
+
+   ```bash
+   git status
+   git diff
+   git commit ...
+   git push origin {{branch}}
+   ```
+
+更多规则请参考主仓的 `AGENTS.md`。

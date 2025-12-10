@@ -21,11 +21,10 @@
 $AGENT_HOME
 ├── AGENTS.md                 # 用户级 AGENTS 说明（本目录的"总纲"）
 ├── README.md                 # 本说明文件（可按个人习惯修改）
-├── mcp.json                  # 1mcp 统一 MCP 配置（所有 MCP servers 定义在此）
-├── bin/
-│   └── 1mcp                  # 1mcp 二进制文件
-├── logs/
-│   └── 1mcp.log              # 1mcp 运行日志
+├── mcp/                      # MCP 相关目录
+│   ├── mcp.json              # 1mcp 统一配置（所有 MCP servers 定义在此）
+│   ├── bin/                  # 1mcp 二进制（由 install 创建）
+│   └── logs/                 # 1mcp 日志（由 start 创建）
 ├── skills/
 │   ├── shared/               # Claude / Codex 共享 Skill
 │   │   └── sayhello/         # 示例 Skill：验证管线用
@@ -89,7 +88,7 @@ $AGENT_HOME
 1mcp 是一个统一的 MCP 网关服务，它：
 
 - 在本地启动一个 HTTP 服务（默认端口 3050）
-- 读取 `~/.agents/mcp.json` 中定义的所有 MCP servers
+- 读取 `~/.agents/mcp/mcp.json` 中定义的所有 MCP servers
 - 提供统一的 HTTP 端点供各 Agent CLI 连接
 
 ### 为什么用 1mcp？
@@ -100,7 +99,7 @@ $AGENT_HOME
 - 新增 MCP server 需要更新所有项目
 
 **现在的方式（1mcp 网关）**：
-- 所有 MCP servers 集中定义在 `~/.agents/mcp.json`
+- 所有 MCP servers 集中定义在 `~/.agents/mcp/mcp.json`
 - 各 Agent CLI 只需连接 `http://127.0.0.1:3050/mcp` 一个端点
 - 新增 MCP server 只需修改 `mcp.json` 并重启 1mcp
 
@@ -114,10 +113,10 @@ $AGENT_HOME
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
       "tags": ["core", "all"]
     },
-    "exa-mcp": {
+    "context7": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.exa.ai/mcp"],
-      "tags": ["core", "all"]
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "tags": ["core", "all", "search"]
     },
     "memory": {
       "command": "npx",
@@ -150,7 +149,7 @@ MCP servers 通过 tags 分类，支持在项目级别使用 preset 过滤：
 | Preset | Tags | 包含的 Servers |
 |--------|------|---------------|
 | `all` | 全部 | 6 个（默认） |
-| `core` | core | sequential-thinking, exa-mcp, memory |
+| `core` | core | sequential-thinking, context7, memory |
 | `agent-cli` | agent-cli | claudecode/codex/gemini-cli-mcp-async |
 
 ### 常用命令
@@ -211,8 +210,8 @@ MCP servers 通过 tags 分类，支持在项目级别使用 preset 过滤：
 
 | 文件 | 说明 |
 |------|------|
-| `~/.agents/mcp.json` | MCP servers 唯一可信源 |
-| `~/.config/1mcp/mcp.json` | 软链接 → `~/.agents/mcp.json` |
+| `~/.agents/mcp/mcp.json` | MCP servers 唯一可信源 |
+| `~/.config/1mcp/mcp.json` | 软链接 → `~/.agents/mcp/mcp.json` |
 | `<project>/.mcp.json` | Claude Code 项目级配置（指向 1mcp） |
 | `<project>/.1mcprc` | 1mcp proxy 配置（preset 过滤） |
 

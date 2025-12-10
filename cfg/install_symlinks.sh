@@ -231,11 +231,10 @@ EOF
 $AGENT_HOME
 ├── AGENTS.md                 # 用户级 AGENTS 说明（本目录的"总纲"）
 ├── README.md                 # 本说明文件
-├── mcp.json                  # 1mcp 统一 MCP 配置（所有 MCP servers 定义在此）
-├── bin/
-│   └── 1mcp                  # 1mcp 二进制文件
-├── logs/
-│   └── 1mcp.log              # 1mcp 运行日志
+├── mcp/                      # MCP 相关目录
+│   ├── mcp.json              # 1mcp 统一配置（所有 MCP servers 定义在此）
+│   ├── bin/                  # 1mcp 二进制（由 install 创建）
+│   └── logs/                 # 1mcp 日志（由 start 创建）
 ├── skills/
 │   ├── shared/               # Claude / Codex 共享 Skill
 │   │   └── sayhello/         # 示例 Skill：验证管线用
@@ -288,7 +287,7 @@ $AGENT_HOME
 1mcp 是一个统一的 MCP 网关服务，它：
 
 - 在本地启动一个 HTTP 服务（默认端口 3050）
-- 读取 `~/.agents/mcp.json` 中定义的所有 MCP servers
+- 读取 `~/.agents/mcp/mcp.json` 中定义的所有 MCP servers
 - 提供统一的 HTTP 端点供各 Agent CLI 连接
 
 **好处**：
@@ -349,8 +348,6 @@ ensure_dir "${AGENT_HOME}/commands/gemini-only"
 ensure_dir "${AGENT_HOME}/hooks/claude"
 
 ensure_dir "${AGENT_HOME}/agents/claude"
-
-ensure_dir "${AGENT_HOME}/mcp"
 
   # 示例 Skill：sayhello（从模板目录复制，用于验证 Skill 管线）
 
@@ -438,13 +435,15 @@ ensure_dir "${AGENT_HOME}/mcp"
     log_verbose "未找到 output-styles 模板目录: ${output_styles_template_dir}"
   fi
 
-# 生成 1mcp 配置文件 mcp.json（替代原有 snippet 方案）
+# 生成 1mcp 配置文件 mcp/mcp.json（替代原有 snippet 方案）
 
-if [[ ! -f "${AGENT_HOME}/mcp.json" ]]; then
+ensure_dir "${AGENT_HOME}/mcp"
+
+if [[ ! -f "${AGENT_HOME}/mcp/mcp.json" ]]; then
 if $DRY_RUN; then
-log_verbose "将创建 ${AGENT_HOME}/mcp.json"
+log_verbose "将创建 ${AGENT_HOME}/mcp/mcp.json"
 else
-cat > "${AGENT_HOME}/mcp.json" <<'EOF'
+cat > "${AGENT_HOME}/mcp/mcp.json" <<'EOF'
 {
   "mcpServers": {
     "sequential-thinking": {
@@ -480,15 +479,12 @@ cat > "${AGENT_HOME}/mcp.json" <<'EOF'
   }
 }
 EOF
-log_verbose "已创建 1mcp 配置: ${AGENT_HOME}/mcp.json"
+log_verbose "已创建 1mcp 配置: ${AGENT_HOME}/mcp/mcp.json"
 fi
 fi
 
-# 创建日志和 bin 目录
-if ! $DRY_RUN; then
-  mkdir -p "${AGENT_HOME}/logs"
-  mkdir -p "${AGENT_HOME}/bin"
-fi
+# 注意：mcp/bin/ 和 mcp/logs/ 目录由 1mcp install/start 命令按需创建
+# 不在此处预创建，避免产生空目录
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -844,7 +840,7 @@ setup_gemini
 echo ""
 
 log_success "全部完成：Claude / Codex / Gemini 已指向你的统一配置目录。"
-$VERBOSE && echo -e "\n${BLUE}提示:${NC} 新机器上推荐顺序：先运行本脚本，再在项目中运行 project_mcp_setup.sh，最后跑一遍 self_test.sh。"
+$VERBOSE && echo -e "\n${BLUE}提示:${NC} 新机器上推荐顺序：先运行本脚本，再安装启动 1mcp (cfg 1mcp install && cfg 1mcp start)，最后在项目中运行 cfg mcp。"
 }
 
 main "$@"

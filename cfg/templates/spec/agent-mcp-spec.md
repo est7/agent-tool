@@ -169,16 +169,16 @@ claude mcp add-from-claude-desktop
 }
 ```
 
-### Exa
+### Context7
 
-高质量代码上下文搜索、技术文档检索。使用 mcp-remote 连接。
+获取库/框架的最新官方文档，自动解析库名返回相关上下文。
 
 ```json
 {
   "mcpServers": {
-    "exa-mcp": {
+    "context7": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.exa.ai/mcp"]
+      "args": ["-y", "@upstash/context7-mcp@latest"]
     }
   }
 }

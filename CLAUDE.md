@@ -41,7 +41,7 @@ shellcheck agent-tool.sh
 **Entry Point**: `agent-tool.sh` - main CLI that parses commands and dispatches to modules.
 
 **Module Structure** (each has `index.sh` as entry):
-- `cfg/` - Config management: `install_symlinks.sh` (syncs templates to `~/.agents/`), `project_mcp_setup.sh` (generates project-level MCP configs)
+- `cfg/` - Config management: `install_symlinks.sh` (syncs templates to `~/.agents/`), `1mcp/index.sh` (1mcp gateway management)
 - `ws/` - Workspace lifecycle: `workspace.sh` contains `create_agent_repo`, `cleanup_agent_repo`, `list_agents`, `status_agents`
 - `build/` - Platform builds: `platforms.sh` with `build_android_project`, `build_ios_project`, `build_web_project`
 - `test/` - Test runner entry point
@@ -75,6 +75,7 @@ shellcheck agent-tool.sh
 | `agent-subagent-spec.md` | Creating/editing custom subagents |
 | `agent-settings-spec.md` | Creating/editing settings.json |
 | `agent-memory-spec.md` | Creating/editing CLAUDE.md memory files |
+| `agent-rules-spec.md` | Creating/editing `.claude/rules/*.md` rule files |
 
 Each spec contains:
 - Official file locations and naming conventions

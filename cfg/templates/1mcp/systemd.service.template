@@ -1,0 +1,14 @@
+[Unit]
+Description=1MCP - Unified MCP Server Proxy
+After=network.target
+
+[Service]
+Type=simple
+ExecStart={{ONEMCP_BIN}} --config {{ONEMCP_CONFIG}} --port {{ONEMCP_PORT}}
+Restart=always
+RestartSec=5
+StandardOutput=append:{{ONEMCP_LOG_FILE}}
+StandardError=append:{{ONEMCP_LOG_FILE}}
+
+[Install]
+WantedBy=default.target

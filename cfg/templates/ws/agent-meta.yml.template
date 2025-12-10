@@ -1,0 +1,8 @@
+type: {{type}}
+scope: {{scope}}
+branch: {{branch}}
+base_branch: {{BASE_BRANCH}}
+created_at: {{CREATED_AT}}
+origin_repo: {{repo_root}}
+agent_dir_name: {{agent_dir_name}}
+description: "TODO: 填写本任务的更详细描述"

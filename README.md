@@ -375,9 +375,9 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 
 | 文件 | 说明 |
 |------|------|
-| `~/.agents/mcp.json` | 全局 MCP servers 配置（1mcp 格式） |
-| `~/.agents/1mcp.pid` | 1mcp 进程 PID 文件 |
-| `~/.agents/logs/1mcp.log` | 1mcp 日志文件 |
+| `~/.agents/mcp/mcp.json` | 全局 MCP servers 配置（1mcp 格式） |
+| `~/.agents/mcp/1mcp.pid` | 1mcp 进程 PID 文件 |
+| `~/.agents/mcp/logs/1mcp.log` | 1mcp 日志文件 |
 | `.1mcprc` | 项目级配置（可选，用于过滤 servers） |
 
 ### 首次设置流程
@@ -416,7 +416,7 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 
 ### 默认 MCP Servers
 
-`cfg init` 会在 `~/.agents/mcp.json` 中配置以下 MCP servers：
+`cfg init` 会在 `~/.agents/mcp/mcp.json` 中配置以下 MCP servers：
 
 | Server | 标签 | 说明 |
 |--------|------|------|
@@ -518,8 +518,7 @@ AGENT_HOME="$HOME/.agents"
   - `doctor/platforms.sh`：针对 Android / iOS / Web 的构建环境自检 (`doctor_*_environment` + `doctor_agent_environment`)
 - `cfg/` 目录
   - `cfg/install_symlinks.sh`：初始化/刷新软链，配置 1mcp HTTP 端点
-  - `cfg/project_mcp_setup.sh`：生成项目级 .1mcprc 配置
-  - `cfg/1mcp/index.sh`：1mcp 子命令（install/start/stop/status/enable/disable/logs）
+  - `cfg/1mcp/index.sh`：1mcp 子命令（install/start/stop/status/enable/disable/logs/init-project）
   - `cfg/aliases.sh`：别名 loader（按职责拆分在 `cfg/aliases.d/*.sh` 中）
   - `cfg/index.sh`：提供 `agent_error` 等通用工具函数
  - `dev/` 目录  

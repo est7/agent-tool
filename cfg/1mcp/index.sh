@@ -22,10 +22,10 @@ set -euo pipefail
 # ============================================================================
 
 AGENT_HOME="${AGENT_HOME:-$HOME/.agents}"
-ONEMCP_BIN="${AGENT_HOME}/bin/1mcp"
-ONEMCP_CONFIG="${AGENT_HOME}/mcp.json"
-ONEMCP_PID_FILE="${AGENT_HOME}/1mcp.pid"
-ONEMCP_LOG_DIR="${AGENT_HOME}/logs"
+ONEMCP_BIN="${AGENT_HOME}/mcp/bin/1mcp"
+ONEMCP_CONFIG="${AGENT_HOME}/mcp/mcp.json"
+ONEMCP_PID_FILE="${AGENT_HOME}/mcp/1mcp.pid"
+ONEMCP_LOG_DIR="${AGENT_HOME}/mcp/logs"
 ONEMCP_LOG_FILE="${ONEMCP_LOG_DIR}/1mcp.log"
 ONEMCP_PORT="${ONEMCP_PORT:-3050}"
 
@@ -75,16 +75,16 @@ show_1mcp_help() {
   agent-tool cfg 1mcp init-project -p core  # 使用 core preset
 
 配置文件:
-  ~/.agents/mcp.json              # MCP servers 唯一可信源
-  ~/.config/1mcp/mcp.json         # 软链接 → ~/.agents/mcp.json
+  ~/.agents/mcp/mcp.json          # MCP servers 唯一可信源
+  ~/.config/1mcp/mcp.json         # 软链接 → ~/.agents/mcp/mcp.json
   <project>/.mcp.json             # Claude Code 项目级配置（指向 1mcp）
   <project>/.1mcprc               # 1mcp proxy 配置（preset 过滤）
-  ~/.agents/1mcp.pid              # PID 文件
-  ~/.agents/logs/1mcp.log         # 日志文件
+  ~/.agents/mcp/1mcp.pid          # PID 文件
+  ~/.agents/mcp/logs/1mcp.log     # 日志文件
 
 预设说明:
   all        全部 6 个 MCP servers（默认）
-  core       核心 servers（sequential-thinking, exa-mcp, memory）
+  core       核心 servers（sequential-thinking, context7, memory）
   agent-cli  跨 CLI 协作（claudecode/codex/gemini-cli-mcp-async）
 
 端口:
@@ -109,6 +109,32 @@ log_error() {
 
 log_warn() {
   echo "[1mcp] 警告: $*" >&2
+}
+
+# 渲染模板文件（替换 {{VAR}} 占位符）
+# 用法: render_template <template_file> <output_file> VAR1=value1 VAR2=value2 ...
+render_template() {
+  local template_file="$1"
+  local output_file="$2"
+  shift 2
+
+  if [[ ! -f "$template_file" ]]; then
+    log_error "模板文件不存在: $template_file"
+    return 1
+  fi
+
+  local content
+  content=$(cat "$template_file")
+
+  # 替换所有传入的变量
+  for var_def in "$@"; do
+    local var_name="${var_def%%=*}"
+    local var_value="${var_def#*=}"
+    content="${content//\{\{${var_name}\}\}/${var_value}}"
+  done
+
+  mkdir -p "$(dirname "$output_file")"
+  echo "$content" > "$output_file"
 }
 
 # 检测操作系统和架构
@@ -254,7 +280,7 @@ cmd_install() {
     generate_default_config
   fi
 
-  # 创建软链接：~/.config/1mcp/mcp.json → ~/.agents/mcp.json
+  # 创建软链接：~/.config/1mcp/mcp.json → ~/.agents/mcp/mcp.json
   # 1mcp 官方默认读取 ~/.config/1mcp/mcp.json，我们将其指向唯一可信源
   local onemcp_official_dir="$HOME/.config/1mcp"
   local onemcp_official_config="${onemcp_official_dir}/mcp.json"
@@ -469,39 +495,14 @@ cmd_logs() {
 enable_launchd() {
   log_info "配置 macOS launchd 自启动..."
 
-  mkdir -p "$(dirname "$LAUNCHAGENT_PLIST")"
+  local template_file
+  template_file="$(get_template_dir)/1mcp/launchd.plist.template"
 
-  cat > "$LAUNCHAGENT_PLIST" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>com.agents.1mcp</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>${ONEMCP_BIN}</string>
-    <string>--config</string>
-    <string>${ONEMCP_CONFIG}</string>
-    <string>--port</string>
-    <string>${ONEMCP_PORT}</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-  <key>KeepAlive</key>
-  <true/>
-  <key>StandardOutPath</key>
-  <string>${ONEMCP_LOG_FILE}</string>
-  <key>StandardErrorPath</key>
-  <string>${ONEMCP_LOG_FILE}</string>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>PATH</key>
-    <string>/usr/local/bin:/usr/bin:/bin</string>
-  </dict>
-</dict>
-</plist>
-EOF
+  render_template "$template_file" "$LAUNCHAGENT_PLIST" \
+    "ONEMCP_BIN=$ONEMCP_BIN" \
+    "ONEMCP_CONFIG=$ONEMCP_CONFIG" \
+    "ONEMCP_PORT=$ONEMCP_PORT" \
+    "ONEMCP_LOG_FILE=$ONEMCP_LOG_FILE"
 
   launchctl load "$LAUNCHAGENT_PLIST" 2>/dev/null || true
   log_info "已启用 launchd 自启动"
@@ -521,24 +522,14 @@ disable_launchd() {
 enable_systemd() {
   log_info "配置 Linux systemd 自启动..."
 
-  mkdir -p "$(dirname "$SYSTEMD_SERVICE")"
+  local template_file
+  template_file="$(get_template_dir)/1mcp/systemd.service.template"
 
-  cat > "$SYSTEMD_SERVICE" <<EOF
-[Unit]
-Description=1MCP - Unified MCP Server Proxy
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=${ONEMCP_BIN} --config ${ONEMCP_CONFIG} --port ${ONEMCP_PORT}
-Restart=always
-RestartSec=5
-StandardOutput=append:${ONEMCP_LOG_FILE}
-StandardError=append:${ONEMCP_LOG_FILE}
-
-[Install]
-WantedBy=default.target
-EOF
+  render_template "$template_file" "$SYSTEMD_SERVICE" \
+    "ONEMCP_BIN=$ONEMCP_BIN" \
+    "ONEMCP_CONFIG=$ONEMCP_CONFIG" \
+    "ONEMCP_PORT=$ONEMCP_PORT" \
+    "ONEMCP_LOG_FILE=$ONEMCP_LOG_FILE"
 
   systemctl --user daemon-reload
   systemctl --user enable 1mcp
@@ -564,46 +555,25 @@ disable_systemd() {
 # 配置生成
 # ============================================================================
 
-generate_default_config() {
-  log_info "生成默认 MCP 配置: $ONEMCP_CONFIG"
-
-  cat > "$ONEMCP_CONFIG" <<'EOF'
-{
-  "mcpServers": {
-    "sequential-thinking": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
-      "tags": ["core", "all"]
-    },
-    "exa-mcp": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "https://mcp.exa.ai/mcp"],
-      "tags": ["core", "all"]
-    },
-    "memory": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-memory"],
-      "tags": ["core", "all"]
-    },
-    "claudecode-mcp-async": {
-      "command": "uvx",
-      "args": ["claudecode-mcp-async"],
-      "tags": ["agent-cli", "all"]
-    },
-    "codex-mcp-async": {
-      "command": "uvx",
-      "args": ["codex-mcp-async"],
-      "tags": ["agent-cli", "all"]
-    },
-    "gemini-cli-mcp-async": {
-      "command": "uvx",
-      "args": ["gemini-cli-mcp-async"],
-      "tags": ["agent-cli", "all"]
-    }
-  }
+# 模板文件路径（相对于 agent-tool 安装目录）
+get_template_dir() {
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  echo "${script_dir}/../templates"
 }
-EOF
 
+generate_default_config() {
+  local template_file
+  template_file="$(get_template_dir)/mcp/mcp.json"
+
+  if [[ ! -f "$template_file" ]]; then
+    log_error "模板文件不存在: $template_file"
+    return 1
+  fi
+
+  log_info "从模板生成 MCP 配置: $ONEMCP_CONFIG"
+  mkdir -p "$(dirname "$ONEMCP_CONFIG")"
+  cp "$template_file" "$ONEMCP_CONFIG"
   log_info "配置已生成"
 }
 
