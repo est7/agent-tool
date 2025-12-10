@@ -1,0 +1,11 @@
+# BEGIN AGENT_HOME MCP snippet
+
+# 示例 Codex MCP 片段（请合并到项目级 .codex/config.toml 中）
+
+# [mcp_servers.example]
+
+# command = "echo"
+
+# args = ["示例 MCP server，请替换为真实配置"]
+
+# END AGENT_HOME MCP snippet
