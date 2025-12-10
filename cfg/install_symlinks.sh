@@ -210,14 +210,14 @@ EOF
         cat > "${AGENT_HOME}/README.md" <<'EOF'
 # 统一配置目录 ($AGENT_HOME)
 
-这是个人的「AI 配置单一真相（Single Source of Truth）」仓库，用来统一管理：
+这是个人的「Agent 配置单一真相（Single Source of Truth）」目录，用来集中管理：
 
-- 全局说明书：AGENTS.md
-- 各种 Slash 命令 / Prompt 模板：commands/
-- 各种 Skill 定义：skills/
-- MCP 配置 Snippet：mcp/
+- 全局说明书：`AGENTS.md`（persona + 编码规则）
+- 通用命令模板：`commands/`（Slash 命令 / prompts）
+- 可复用 Skills：`skills/`
+- MCP 统一配置：`mcp.json`（1mcp 网关配置）
 
-目前主要面向三套工具：
+当前主要服务于三类客户端：
 
 - Claude Code
 - Codex CLI / Codex in IDE
@@ -229,132 +229,99 @@ EOF
 
 ```text
 $AGENT_HOME
-├── AGENTS.md                 # 全局 persona + 编码规则（被多工具读取）
+├── AGENTS.md                 # 用户级 AGENTS 说明（本目录的"总纲"）
 ├── README.md                 # 本说明文件
+├── mcp/                      # MCP 相关目录
+│   ├── mcp.json              # 1mcp 统一配置（所有 MCP servers 定义在此）
+│   ├── bin/                  # 1mcp 二进制（由 install 创建）
+│   └── logs/                 # 1mcp 日志（由 start 创建）
 ├── skills/
-│   ├── shared/               # Claude + Codex 等共享的 Skill
-│   │   └── sayhello/         # 示例 Skill：用于验证管线
-│   │       ├── SKILL.md
-│   │       └── scripts/run.sh
-│   ├── claude-only/          # 仅 Claude 使用的 Skill
-│   └── codex-only/           # 仅 Codex 使用的 Skill
+│   ├── shared/               # Claude / Codex 共享 Skill
+│   │   └── sayhello/         # 示例 Skill：验证管线用
+│   ├── claude-only/          # 仅 Claude 使用
+│   └── codex-only/           # 仅 Codex 使用
 ├── commands/
 │   ├── shared/               # 通用 Slash 命令
-│   │   └── review.md         # 示例：/review 统一 Code Review 模板
-│   ├── claude-only/          # 仅 Claude 使用的命令
-│   ├── codex-only/           # 仅 Codex 使用的命令
-│   └── gemini-only/          # 仅 Gemini 使用的命令/说明
+│   │   └── plan.md           # 示例：/plan 任务规划命令
+│   ├── claude-only/          # 仅 Claude 使用
+│   ├── codex-only/           # 仅 Codex 使用
+│   └── gemini-only/          # 仅 Gemini 使用
 ├── output-styles/
-│   ├── shared/               # 通用输出风格（Claude/Codex 等可共享）
+│   ├── shared/               # 通用输出风格（Claude / Codex 等共享）
 │   └── claude-only/          # 仅 Claude 使用的输出风格
-├── mcp/
-│   ├── claude.json.snippet   # Claude 用的 .mcp.json 片段（不含密钥）
-│   ├── gemini.json.snippet   # Gemini 用的 settings.json 片段（不含密钥）
-│   └── codex.toml.snippet    # Codex 用的 config.toml 片段（只放 [mcp_servers.*]）
-└── .mcp.json                 # 把 $AGENT_HOME 本身当成一个“项目”时的 MCP 配置骨架
-````
-
----
-
-## 三件套脚本说明（脚本位于 ~/scripts/agent-tool/cfg 和 doctor）
-
-### 1. 全局初始化：install_symlinks.sh
-
-位置：`~/scripts/agent-tool/cfg/install_symlinks.sh`（或通过 `agent-tool cfg init` 调用）
-
-作用：
-
-* 初始化 `$AGENT_HOME` 基本目录结构和示例文件（仅在不存在时创建）
-* 为三套工具建立「指向 $AGENT_HOME 的软链接」：
-
-  * `~/.claude/CLAUDE.md -> $AGENT_HOME/AGENTS.md`
-  * `~/.claude/commands/* -> $AGENT_HOME/commands/{shared,claude-only}`
-  * `~/.claude/skills/*   -> $AGENT_HOME/skills/{shared,claude-only}`
-  * `~/.claude/output-styles/* -> $AGENT_HOME/output-styles/{shared,claude-only}`
-  * `~/.codex/prompts/*   -> $AGENT_HOME/commands/{shared,codex-only}`
-  * `~/.codex/skills/*    -> $AGENT_HOME/skills/{shared,codex-only}`
-  * `~/.codex/AGENTS.md   -> $AGENT_HOME/AGENTS.md`
-  * `~/.gemini/AGENTS.md  -> $AGENT_HOME/AGENTS.md`
-* 如果已安装过，可以用 `--uninstall` 把这些软链接干净移除
-
-示例：
-
-```bash
-# 只看看会做什么（推荐新机器先这样跑一遍）
-~/scripts/agent-tool/cfg/install_symlinks.sh -n -v
-
-# 实际执行全局初始化（新机器第一次）
-~/scripts/agent-tool/cfg/install_symlinks.sh -v
-
-# 如果某些路径已被手工文件占用，且你确认要用统一配置目录接管：
-~/scripts/agent-tool/cfg/install_symlinks.sh -v --force
-
-# 想撤销（只移除由本脚本创建的软链接，不删真实目录/文件）
-~/scripts/agent-tool/cfg/install_symlinks.sh -u -v
-```
-
-### 2. 项目级 MCP：project_mcp_setup.sh
-
-位置：`~/scripts/agent-tool/cfg/project_mcp_setup.sh`（或通过 `agent-tool cfg mcp` 调用）
-
-在「项目根目录」中运行，用 `$AGENT_HOME/mcp` 下的 snippet 生成项目级配置：
-
-* Claude: `./.mcp.json`
-* Gemini: `./.gemini/settings.json`
-* Codex: `./.codex/config.toml`（配合项目内 `CODEX_HOME=./.codex` 使用）
-
-示例：
-
-```bash
-cd /path/to/your/project
-~/scripts/agent-tool/cfg/project_mcp_setup.sh -v
-```
-
-### 3. 自检：cfg_doctor.sh
-
-位置：`~/scripts/agent-tool/doctor/cfg_doctor.sh`（或通过 `agent-tool cfg selftest` / `agent-tool doctor <platform>` 调用）
-
-作用：
-
-* 检查 `$AGENT_HOME` 是否存在关键文件/目录
-* 校验 `mcp/*.json.snippet` 的 JSON 语法（依赖 jq）
-* 检查几个关键软链接是否存在、是否为 symlink
-
-示例：
-
-```bash
-~/scripts/agent-tool/doctor/cfg_doctor.sh -v
+├── hooks/
+│   └── claude/               # Claude Code hooks
+└── agents/
+    └── claude/               # Claude Code 自定义 subagents
 ```
 
 ---
 
-## 新机器上的推荐工作流
+## 快速开始
 
-1. 克隆配置仓库：
+### 1. 全局初始化
 
-   ```bash
-   git clone git@github.com:yourname/dot-agents.git ~/.agents
-   ```
+```bash
+./agent-tool.sh cfg init        # 初始化目录结构 + 建立软链接
+./agent-tool.sh cfg selftest -v # 自检配置是否正确
+```
 
-2. 全局初始化：
+### 2. 安装并启动 1mcp
 
-   ```bash
-   ~/scripts/agent-tool/cfg/install_symlinks.sh -n -v
-   ~/scripts/agent-tool/cfg/install_symlinks.sh -v
-   ```
+```bash
+./agent-tool.sh cfg 1mcp install   # 下载安装 1mcp 二进制
+./agent-tool.sh cfg 1mcp start     # 启动 1mcp 服务（后台运行）
+./agent-tool.sh cfg 1mcp status    # 查看运行状态
+```
 
-3. 针对常用项目，在项目根目录生成项目级 MCP 配置：
+### 3. 设置开机自启（可选）
 
-   ```bash
-   cd ~/workspace/your-project
-   ~/scripts/agent-tool/cfg/project_mcp_setup.sh -v
-   ```
+```bash
+./agent-tool.sh cfg 1mcp enable    # macOS: launchd, Linux: systemd
+```
 
-4. 最后跑一次自检确认整体环境健康：
+---
 
-   ```bash
-   ~/scripts/agent-tool/doctor/cfg_doctor.sh -v
-   ```
+## 1mcp 统一 MCP 网关
+
+1mcp 是一个统一的 MCP 网关服务，它：
+
+- 在本地启动一个 HTTP 服务（默认端口 3050）
+- 读取 `~/.agents/mcp/mcp.json` 中定义的所有 MCP servers
+- 提供统一的 HTTP 端点供各 Agent CLI 连接
+
+**好处**：
+- 所有 MCP servers 集中定义在 `mcp.json`
+- 各 Agent CLI 只需连接 `http://127.0.0.1:3050/mcp` 一个端点
+- 新增 MCP server 只需修改 `mcp.json` 并重启 1mcp
+
+**常用命令**：
+
+```bash
+./agent-tool.sh cfg 1mcp install   # 安装 1mcp
+./agent-tool.sh cfg 1mcp start     # 启动服务
+./agent-tool.sh cfg 1mcp stop      # 停止服务
+./agent-tool.sh cfg 1mcp restart   # 重启服务（修改 mcp.json 后）
+./agent-tool.sh cfg 1mcp status    # 查看状态
+./agent-tool.sh cfg 1mcp logs -f   # 实时跟踪日志
+```
+
+---
+
+## 刷新配置
+
+新增 command/skill 后，运行：
+
+```bash
+./agent-tool.sh cfg refresh   # 刷新软链接
+```
+
+---
+
+## 更多信息
+
+- 1mcp 官方文档：https://docs.1mcp.app/
+- 运行 `./agent-tool.sh --help` 查看所有命令
 
 EOF
         log_verbose "已创建 README.md（内联默认内容）"
@@ -381,8 +348,6 @@ ensure_dir "${AGENT_HOME}/commands/gemini-only"
 ensure_dir "${AGENT_HOME}/hooks/claude"
 
 ensure_dir "${AGENT_HOME}/agents/claude"
-
-ensure_dir "${AGENT_HOME}/mcp"
 
   # 示例 Skill：sayhello（从模板目录复制，用于验证 Skill 管线）
 
@@ -470,160 +435,169 @@ ensure_dir "${AGENT_HOME}/mcp"
     log_verbose "未找到 output-styles 模板目录: ${output_styles_template_dir}"
   fi
 
-# MCP snippet 占位文件（不含密钥）
+# 生成 1mcp 配置文件 mcp/mcp.json（替代原有 snippet 方案）
 
-if [[ ! -f "${AGENT_HOME}/mcp/claude.json.snippet" ]]; then
+ensure_dir "${AGENT_HOME}/mcp"
+
+if [[ ! -f "${AGENT_HOME}/mcp/mcp.json" ]]; then
 if $DRY_RUN; then
-log_verbose "将创建 mcp/claude.json.snippet"
+log_verbose "将创建 ${AGENT_HOME}/mcp/mcp.json"
 else
-cat > "${AGENT_HOME}/mcp/claude.json.snippet" <<'EOF'
+cat > "${AGENT_HOME}/mcp/mcp.json" <<'EOF'
 {
   "mcpServers": {
-    "claudecode-mcp-async": {
-      "args": [
-        "claudecode-mcp-async"
-      ],
-      "command": "uvx",
-      "env": {}
-    },
-    "codex-mcp-async": {
-      "args": [
-        "codex-mcp-async"
-      ],
-      "command": "uvx",
-      "env": {}
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "tags": ["core", "thinking"]
     },
     "exa-mcp": {
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://mcp.exa.ai/mcp"
-      ],
-      "command": "npx"
-    },
-    "gemini-cli-mcp-async": {
-      "args": [
-        "gemini-cli-mcp-async"
-      ],
-      "command": "uvx",
-      "env": {}
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://mcp.exa.ai/mcp"],
+      "tags": ["core", "search"]
     },
     "memory": {
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-memory"
-      ],
       "command": "npx",
-      "type": "stdio"
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "tags": ["core", "memory"]
     },
-    "sequential-thinking": {
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-sequential-thinking"
-      ],
-      "command": "npx",
-      "type": "stdio"
+    "claudecode-mcp-async": {
+      "command": "uvx",
+      "args": ["claudecode-mcp-async"],
+      "tags": ["async", "claude"]
+    },
+    "codex-mcp-async": {
+      "command": "uvx",
+      "args": ["codex-mcp-async"],
+      "tags": ["async", "codex"]
+    },
+    "gemini-cli-mcp-async": {
+      "command": "uvx",
+      "args": ["gemini-cli-mcp-async"],
+      "tags": ["async", "gemini"]
     }
   }
 }
 EOF
-log_verbose "已创建 mcp/claude.json.snippet"
+log_verbose "已创建 1mcp 配置: ${AGENT_HOME}/mcp/mcp.json"
 fi
 fi
 
-if [[ ! -f "${AGENT_HOME}/mcp/codex.toml.snippet" ]]; then
-if $DRY_RUN; then
-log_verbose "将创建 mcp/codex.toml.snippet"
-else
-cat > "${AGENT_HOME}/mcp/codex.toml.snippet" <<'EOF'
+# 注意：mcp/bin/ 和 mcp/logs/ 目录由 1mcp install/start 命令按需创建
+# 不在此处预创建，避免产生空目录
+}
 
-# 示例 Codex MCP 片段（请合并到项目级 .codex/config.toml 中）
+# ─────────────────────────────────────────────────────────────────────────────
 
-# [mcp_servers.example]
+# 配置各 CLI 的 1mcp HTTP 端点
 
-# command = "echo"
+# ─────────────────────────────────────────────────────────────────────────────
 
-# args = ["示例 MCP server，请替换为真实配置"]
+ONEMCP_PORT="${ONEMCP_PORT:-3050}"
+ONEMCP_URL="http://127.0.0.1:${ONEMCP_PORT}/mcp"
 
-EOF
-log_verbose "已创建 mcp/codex.toml.snippet"
-fi
-fi
+# 配置 Claude Code 的 1mcp 连接
+configure_claude_1mcp() {
+  local claude_home="$1"
+  local settings="$claude_home/settings.json"
 
-if [[ ! -f "${AGENT_HOME}/mcp/gemini.json.snippet" ]]; then
-if $DRY_RUN; then
-log_verbose "将创建 mcp/gemini.json.snippet"
-else
-cat > "${AGENT_HOME}/mcp/gemini.json.snippet" <<'EOF'
+  if $DRY_RUN; then
+    log_verbose "将配置 Claude 1mcp 端点: $settings"
+    return
+  fi
+
+  # 如果 settings.json 不存在，创建它
+  if [[ ! -f "$settings" ]]; then
+    cat > "$settings" <<EOF
 {
   "mcpServers": {
-    "claudecode-mcp-async": {
-      "args": [
-        "claudecode-mcp-async"
-      ],
-      "command": "uvx",
-      "env": {}
-    },
-    "codex-mcp-async": {
-      "args": [
-        "codex-mcp-async"
-      ],
-      "command": "uvx",
-      "env": {}
-    },
-    "exa-mcp": {
-      "args": [
-        "-y",
-        "mcp-remote",
-        "https://mcp.exa.ai/mcp"
-      ],
-      "command": "npx"
-    },
-    "gemini-cli-mcp-async": {
-      "args": [
-        "gemini-cli-mcp-async"
-      ],
-      "command": "uvx",
-      "env": {}
-    },
-    "memory": {
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-memory"
-      ],
-      "command": "npx",
-      "type": "stdio"
-    },
-    "sequential-thinking": {
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-sequential-thinking"
-      ],
-      "command": "npx",
-      "type": "stdio"
+    "1mcp": {
+      "url": "${ONEMCP_URL}"
     }
-  },
-  "contextFileName": ["AGENTS.md"]
+  }
 }
 EOF
-log_verbose "已创建 mcp/gemini.json.snippet"
-fi
-fi
+    log_verbose "已创建 Claude settings.json 并配置 1mcp"
+    return
+  fi
 
-# 把 $AGENT_HOME 本身当成一个“项目”时的 .mcp.json 骨架
+  # 如果存在，使用 jq 更新（如果有 jq）
+  if command -v jq &>/dev/null; then
+    local tmp="${settings}.tmp.$$"
+    jq --arg url "$ONEMCP_URL" '
+      .mcpServers = (.mcpServers // {}) |
+      .mcpServers["1mcp"] = { "url": $url }
+    ' "$settings" > "$tmp" && mv "$tmp" "$settings"
+    log_verbose "已更新 Claude settings.json 中的 1mcp 配置"
+  else
+    log_warn "未找到 jq。请手动在 $settings 中添加 1mcp 配置。"
+    log_warn "参考: {\"mcpServers\": {\"1mcp\": {\"url\": \"${ONEMCP_URL}\"}}}"
+  fi
+}
 
-if [[ ! -f "${AGENT_HOME}/.mcp.json" ]]; then
-if $DRY_RUN; then
-log_verbose "将创建 ${AGENT_HOME}/.mcp.json 骨架"
-else
-cat > "${AGENT_HOME}/.mcp.json" <<'EOF'
+# 配置 Codex CLI 的 1mcp 连接
+configure_codex_1mcp() {
+  local codex_home="$1"
+  local config="$codex_home/config.toml"
+
+  if $DRY_RUN; then
+    log_verbose "将配置 Codex 1mcp 端点: $config"
+    return
+  fi
+
+  # 检查是否已配置
+  if [[ -f "$config" ]] && grep -q '\[mcp_servers\.1mcp\]' "$config" 2>/dev/null; then
+    log_verbose "Codex 1mcp 已配置，跳过"
+    return
+  fi
+
+  # 追加 1mcp 配置
+  cat >> "$config" <<EOF
+
+# 1mcp 统一 MCP 网关（由 agent-tool 自动生成）
+[mcp_servers.1mcp]
+url = "${ONEMCP_URL}"
+EOF
+  log_verbose "已配置 Codex 1mcp 端点"
+}
+
+# 配置 Gemini CLI 的 1mcp 连接
+configure_gemini_1mcp() {
+  local gemini_home="$1"
+  local settings="$gemini_home/settings.json"
+
+  if $DRY_RUN; then
+    log_verbose "将配置 Gemini 1mcp 端点: $settings"
+    return
+  fi
+
+  # 如果 settings.json 不存在，创建它
+  if [[ ! -f "$settings" ]]; then
+    cat > "$settings" <<EOF
 {
-"mcpServers": { }
+  "contextFileName": ["AGENTS.md", "GEMINI.md"],
+  "mcpServers": {
+    "1mcp": {
+      "url": "${ONEMCP_URL}"
+    }
+  }
 }
 EOF
-log_verbose "已创建 ${AGENT_HOME}/.mcp.json 骨架"
-fi
-fi
+    log_verbose "已创建 Gemini settings.json 并配置 1mcp"
+    return
+  fi
+
+  # 如果存在，使用 jq 更新
+  if command -v jq &>/dev/null; then
+    local tmp="${settings}.tmp.$$"
+    jq --arg url "$ONEMCP_URL" '
+      .mcpServers = (.mcpServers // {}) |
+      .mcpServers["1mcp"] = { "url": $url }
+    ' "$settings" > "$tmp" && mv "$tmp" "$settings"
+    log_verbose "已更新 Gemini settings.json 中的 1mcp 配置"
+  else
+    log_warn "未找到 jq。请手动在 $settings 中添加 1mcp 配置。"
+  fi
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -680,9 +654,8 @@ if ! $DRY_RUN; then
 fi
 link_dir_contents "${AGENT_HOME}/agents/claude" "$claude_home/agents"
 
-if [[ -f "${AGENT_HOME}/mcp/claude.json.snippet" ]]; then
-log_verbose "提示: Claude MCP snippet 位于 ${AGENT_HOME}/mcp/claude.json.snippet，可配合 project_mcp_setup.sh 在项目层使用。"
-fi
+# 配置 1mcp HTTP 端点（settings.json）
+configure_claude_1mcp "$claude_home"
 
 log_success "Claude Code 已配置完成"
 }
@@ -715,9 +688,8 @@ link_dir_contents "${AGENT_HOME}/skills/codex-only" "$codex_home/skills"
 
 safe_link "${AGENT_HOME}/AGENTS.md" "$codex_home/AGENTS.md"
 
-if [[ -f "${AGENT_HOME}/mcp/codex.toml.snippet" ]]; then
-log_verbose "提示: Codex MCP snippet 位于 ${AGENT_HOME}/mcp/codex.toml.snippet，可配合 project_mcp_setup.sh 在项目层使用。"
-fi
+# 配置 1mcp HTTP 端点（config.toml）
+configure_codex_1mcp "$codex_home"
 
 log_success "Codex CLI 已配置完成"
 }
@@ -774,9 +746,8 @@ fi
 link_dir_contents "${AGENT_HOME}/commands/shared" "$gemini_home/commands" "*.md"
 link_dir_contents "${AGENT_HOME}/commands/gemini-only" "$gemini_home/commands" "*.md"
 
-if [[ -f "${AGENT_HOME}/mcp/gemini.json.snippet" ]]; then
-log_verbose "提示: Gemini MCP snippet 位于 ${AGENT_HOME}/mcp/gemini.json.snippet，可配合 project_mcp_setup.sh 在项目层使用。"
-fi
+# 配置 1mcp HTTP 端点（settings.json 中的 mcpServers）
+configure_gemini_1mcp "$gemini_home"
 
 log_success "Gemini CLI 已配置完成"
 }
@@ -869,7 +840,7 @@ setup_gemini
 echo ""
 
 log_success "全部完成：Claude / Codex / Gemini 已指向你的统一配置目录。"
-$VERBOSE && echo -e "\n${BLUE}提示:${NC} 新机器上推荐顺序：先运行本脚本，再在项目中运行 project_mcp_setup.sh，最后跑一遍 self_test.sh。"
+$VERBOSE && echo -e "\n${BLUE}提示:${NC} 新机器上推荐顺序：先运行本脚本，再安装启动 1mcp (cfg 1mcp install && cfg 1mcp start)，最后在项目中运行 cfg mcp。"
 }
 
 main "$@"

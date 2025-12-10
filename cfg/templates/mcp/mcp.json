@@ -1,0 +1,34 @@
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "tags": ["core", "all"]
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "tags": ["core", "all", "search"]
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"],
+      "tags": ["core", "all"]
+    },
+    "claudecode-mcp-async": {
+      "command": "uvx",
+      "args": ["claudecode-mcp-async"],
+      "tags": ["agent-cli", "all"]
+    },
+    "codex-mcp-async": {
+      "command": "uvx",
+      "args": ["codex-mcp-async"],
+      "tags": ["agent-cli", "all"]
+    },
+    "gemini-cli-mcp-async": {
+      "command": "uvx",
+      "args": ["gemini-cli-mcp-async"],
+      "tags": ["agent-cli", "all"]
+    }
+  }
+}

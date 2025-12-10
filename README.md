@@ -2,7 +2,7 @@
 
 用于在任意 Git 仓库中创建 / 管理针对单个任务的 Agent 工作空间, 并为常见平台提供统一的构建/运行入口。内部按模块目录拆分：
 
-- `cfg/`：统一配置脚本（软链初始化/刷新、MCP 生成、别名）
+- `cfg/`：统一配置脚本（软链初始化/刷新、1mcp 网关管理、MCP 配置生成）
 - `doctor/`：自检脚本（含 cfg_doctor）
 - `ws/`、`dev/`、`build/`：预留模块目录，便于后续拆分
 
@@ -44,7 +44,8 @@
   - `cfg init` / `cfg init-force`: 运行 `cfg/install_symlinks.sh -v [--force]`
   - `cfg refresh`: 刷新文件级软链（新增 commands/skills/hooks/agents 后用）
   - `cfg selftest [--v]`: 自检配置目录与软链状态
-  - `cfg mcp [options]`: 在项目根生成项目级 MCP 配置（透传选项到 `project_mcp_setup.sh`）
+  - `cfg mcp [options]`: 在项目根生成项目级 .1mcprc 配置
+  - `cfg 1mcp <cmd>`: 管理 1mcp 统一 MCP 网关（详见下方 1mcp 章节）
  - `ws` 子命令:
   - `ws create [--base-branch <branch>] <type> <scope>`
   - `ws cleanup [--force] <type> <scope>` # 默认交互确认；--force 为非交互危险删除
@@ -296,7 +297,7 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 示例：
 
 ```bash
-# 初始化软链
+# 初始化软链（同时配置 1mcp 端点）
 ./agent-tool.sh cfg init
 
 # 强制接管非软链路径
@@ -308,9 +309,123 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 # 自检配置目录及软链
 ./agent-tool.sh cfg selftest -v
 
-# 在项目根生成项目级 MCP 配置（Claude/Gemini/Codex）
-./agent-tool.sh cfg mcp -v --claude
+# 在项目根生成项目级 .1mcprc 配置
+./agent-tool.sh cfg mcp
+./agent-tool.sh cfg mcp --tags "core"
 ```
+
+## 1mcp 统一 MCP 网关
+
+`agent-tool` 使用 [1mcp](https://github.com/1mcp-app/agent) 作为统一 MCP 网关，为 Claude Code、Codex CLI、Gemini CLI 提供统一的 MCP 服务入口。
+
+### 架构说明
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Claude Code   │    │    Codex CLI    │    │   Gemini CLI    │
+└────────┬────────┘    └────────┬────────┘    └────────┬────────┘
+         │                      │                      │
+         └──────────────────────┼──────────────────────┘
+                                │
+                                ▼
+                   ┌────────────────────────┐
+                   │  1mcp HTTP Server      │
+                   │  http://127.0.0.1:3050 │
+                   └────────────┬───────────┘
+                                │
+         ┌──────────────────────┼──────────────────────┐
+         │                      │                      │
+         ▼                      ▼                      ▼
+   ┌───────────┐        ┌───────────┐        ┌───────────┐
+   │ sequential│        │  exa-mcp  │        │  memory   │
+   │ -thinking │        │           │        │           │
+   └───────────┘        └───────────┘        └───────────┘
+```
+
+### 1mcp 子命令
+
+```bash
+# 安装 1mcp binary
+./agent-tool.sh cfg 1mcp install
+
+# 启动 1mcp server（后台运行）
+./agent-tool.sh cfg 1mcp start
+
+# 停止 1mcp server
+./agent-tool.sh cfg 1mcp stop
+
+# 重启 1mcp server
+./agent-tool.sh cfg 1mcp restart
+
+# 查看运行状态
+./agent-tool.sh cfg 1mcp status
+
+# 设置开机自启（macOS: launchd, Linux: systemd）
+./agent-tool.sh cfg 1mcp enable
+
+# 取消开机自启
+./agent-tool.sh cfg 1mcp disable
+
+# 查看日志
+./agent-tool.sh cfg 1mcp logs
+./agent-tool.sh cfg 1mcp logs -f  # 实时跟踪
+```
+
+### 配置文件
+
+| 文件 | 说明 |
+|------|------|
+| `~/.agents/mcp/mcp.json` | 全局 MCP servers 配置（1mcp 格式） |
+| `~/.agents/mcp/1mcp.pid` | 1mcp 进程 PID 文件 |
+| `~/.agents/mcp/logs/1mcp.log` | 1mcp 日志文件 |
+| `.1mcprc` | 项目级配置（可选，用于过滤 servers） |
+
+### 首次设置流程
+
+```bash
+# 1. 初始化配置（会自动配置各 CLI 的 1mcp 端点）
+./agent-tool.sh cfg init
+
+# 2. 安装 1mcp binary
+./agent-tool.sh cfg 1mcp install
+
+# 3. 启动 1mcp server
+./agent-tool.sh cfg 1mcp start
+
+# 4. 验证状态
+./agent-tool.sh cfg 1mcp status
+
+# 5.（可选）设置开机自启
+./agent-tool.sh cfg 1mcp enable
+```
+
+### 项目级配置
+
+在项目根目录运行 `cfg mcp` 可生成 `.1mcprc` 文件，用于过滤该项目使用的 MCP servers：
+
+```bash
+# 生成默认配置（使用所有 servers）
+./agent-tool.sh cfg mcp
+
+# 只使用带 "core" 标签的 servers
+./agent-tool.sh cfg mcp --tags "core"
+
+# 使用预设
+./agent-tool.sh cfg mcp --preset web-dev
+```
+
+### 默认 MCP Servers
+
+`cfg init` 会在 `~/.agents/mcp/mcp.json` 中配置以下 MCP servers：
+
+| Server | 标签 | 说明 |
+|--------|------|------|
+| `sequential-thinking` | core, thinking | 结构化思考 |
+| `exa-mcp` | core, search | 代码搜索 |
+| `memory` | core, memory | 知识图谱 |
+| `claudecode-mcp-async` | async, claude | Claude Code 异步调用 |
+| `codex-mcp-async` | async, codex | Codex CLI 异步调用 |
+| `gemini-cli-mcp-async` | async, gemini | Gemini CLI 异步调用 |
 
 ## 开发与校验
 
@@ -401,9 +516,9 @@ AGENT_HOME="$HOME/.agents"
 - `doctor/` 目录  
   - `doctor/cfg_doctor.sh`：检查统一配置目录（AGENT_HOME）与软链状态
   - `doctor/platforms.sh`：针对 Android / iOS / Web 的构建环境自检 (`doctor_*_environment` + `doctor_agent_environment`)
-- `cfg/` 目录  
-  - `cfg/install_symlinks.sh`：初始化/刷新软链
-  - `cfg/project_mcp_setup.sh`：基于 snippet 生成项目级 MCP 配置
+- `cfg/` 目录
+  - `cfg/install_symlinks.sh`：初始化/刷新软链，配置 1mcp HTTP 端点
+  - `cfg/1mcp/index.sh`：1mcp 子命令（install/start/stop/status/enable/disable/logs/init-project）
   - `cfg/aliases.sh`：别名 loader（按职责拆分在 `cfg/aliases.d/*.sh` 中）
   - `cfg/index.sh`：提供 `agent_error` 等通用工具函数
  - `dev/` 目录  

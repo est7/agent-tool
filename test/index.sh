@@ -208,7 +208,7 @@ agent_tool_test_self() {
     "${root}/doctor/index.sh"
     "${root}/cfg/aliases.sh"
     "${root}/cfg/install_symlinks.sh"
-    "${root}/cfg/project_mcp_setup.sh"
+    "${root}/cfg/1mcp/index.sh"
     "${root}/cfg/index.sh"
     "${root}/dev/index.sh"
     "${root}/test/index.sh"

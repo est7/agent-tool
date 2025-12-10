@@ -12,5 +12,5 @@ alias agent-cfg-selftest="${DOCTOR_DIR}/cfg_doctor.sh"
 alias agent-cfg-init="${CFG_DIR}/install_symlinks.sh -v"
 alias agent-cfg-init-force="${CFG_DIR}/install_symlinks.sh -v --force"
 
-alias agent-cfg-mcp="${CFG_DIR}/project_mcp_setup.sh -v"
+alias agent-cfg-mcp="${CFG_DIR}/1mcp/index.sh init-project"
 

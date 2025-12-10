@@ -10,6 +10,39 @@ set -euo pipefail
 # - base_branch_name（可选）
 ########################################
 
+# 模板文件路径（相对于 agent-tool 安装目录）
+get_template_dir() {
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  echo "${script_dir}/../cfg/templates"
+}
+
+# 渲染模板文件（替换 {{VAR}} 占位符）
+# 用法: render_template <template_file> <output_file> VAR1=value1 VAR2=value2 ...
+render_template() {
+  local template_file="$1"
+  local output_file="$2"
+  shift 2
+
+  if [[ ! -f "$template_file" ]]; then
+    echo "错误: 模板文件不存在: $template_file" >&2
+    return 1
+  fi
+
+  local content
+  content=$(cat "$template_file")
+
+  # 替换所有传入的变量
+  for var_def in "$@"; do
+    local var_name="${var_def%%=*}"
+    local var_value="${var_def#*=}"
+    content="${content//\{\{${var_name}\}\}/${var_value}}"
+  done
+
+  mkdir -p "$(dirname "$output_file")"
+  echo "$content" > "$output_file"
+}
+
 create_agent_repo() {
   local repo_root="$1"
   local agent_root="$2"
@@ -46,27 +79,9 @@ create_agent_repo() {
   # 1) 在 Agent 仓库中生成并执行 agent_clone.sh (初始化 submodules)
   ########################################
   if [[ ! -f agent_clone.sh ]]; then
-    cat >agent_clone.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-echo "==> 初始化 submodules (agent_clone.sh) ..."
-
-git submodule init || true
-
-if git config -f .gitmodules --get-regexp path >/dev/null 2>&1; then
-  git config -f .gitmodules --get-regexp path | awk '{print $2}' | \
-  while IFS= read -r m; do
-    echo "  -> 初始化 submodule: ${m}"
-    git -c submodule.alternateErrorStrategy=info \
-        submodule update --init --recursive "${m}" 2>/dev/null || echo "  !! 跳过: ${m}"
-  done
-else
-  echo "  (没有配置任何 submodule，跳过初始化)"
-fi
-
-echo "==> submodules 初始化完成。"
-EOF
+    local template_dir
+    template_dir="$(get_template_dir)"
+    cp "${template_dir}/ws/agent_clone.sh" agent_clone.sh
     chmod +x agent_clone.sh
   fi
 
@@ -168,57 +183,26 @@ EOF
   ########################################
   CREATED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-  cat >.agent-meta.yml <<EOF
-type: ${type}
-scope: ${scope}
-branch: ${branch}
-base_branch: ${BASE_BRANCH}
-created_at: ${CREATED_AT}
-origin_repo: ${repo_root}
-agent_dir_name: ${agent_dir_name}
-description: "TODO: 填写本任务的更详细描述"
-EOF
+  local template_dir
+  template_dir="$(get_template_dir)"
 
-  cat >README_AGENT.md <<EOF
-# Agent Workspace
+  render_template "${template_dir}/ws/agent-meta.yml.template" ".agent-meta.yml" \
+    "type=${type}" \
+    "scope=${scope}" \
+    "branch=${branch}" \
+    "BASE_BRANCH=${BASE_BRANCH}" \
+    "CREATED_AT=${CREATED_AT}" \
+    "repo_root=${repo_root}" \
+    "agent_dir_name=${agent_dir_name}"
 
-本目录是针对任务 **${type}/${scope}** 的独立 Agent 开发仓库。
-
-- 主仓路径: \`${repo_root}\`
-- Agent 仓库路径: \`${agent_dir}\`
-- 当前 Agent 分支: \`${branch}\`
-- 基线分支: \`${BASE_BRANCH}\`
-- 创建时间(UTC): \`${CREATED_AT}\`
-
-## 使用说明（人类 & Code Agent）
-
-1. 在编辑器 / Codex / 其他 Agent 工具中，将项目根目录设置为本仓库根目录：
-   \`${agent_dir}\`
-
-2. 所有改动请提交到当前分支：
-   \`${branch}\`
-
-3. 本脚本已尝试为所有可访问的 submodule 以同名基线分支 \`${BASE_BRANCH}\` 创建/切换分支 \`${branch}\`：
-   - 若子仓存在 \`origin/${BASE_BRANCH}\` 或本地 \`${BASE_BRANCH}\`，则基于该分支创建；
-   - 若子仓不存在该分支，则保持当前分支/commit 不变并打印提示。
-
-4. 如需重新初始化 submodule，可在本仓库根目录执行：
-
-   \`\`\`bash
-   ./agent_clone.sh
-   \`\`\`
-
-5. 完成后，由人类在本仓库中整理 commit，并 push 到远端：
-
-   \`\`\`bash
-   git status
-   git diff
-   git commit ...
-   git push origin ${branch}
-   \`\`\`
-
-更多规则请参考主仓的 \`AGENTS.md\`。
-EOF
+  render_template "${template_dir}/ws/README_AGENT.md.template" "README_AGENT.md" \
+    "type=${type}" \
+    "scope=${scope}" \
+    "branch=${branch}" \
+    "BASE_BRANCH=${BASE_BRANCH}" \
+    "CREATED_AT=${CREATED_AT}" \
+    "repo_root=${repo_root}" \
+    "agent_dir=${agent_dir}"
 
   cat <<EOF
 

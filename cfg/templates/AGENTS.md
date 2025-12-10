@@ -147,7 +147,7 @@
 | 服务 | 触发时机 | 用途 |
 |------|---------|------|
 | **sequential-thinking** | 分解复杂问题、规划步骤、评估方案 | 生成可执行计划与里程碑 |
-| **exa-mcp** | 查询代码示例、API 用法、技术文档 | 高质量代码上下文搜索 |
+| **context7** | 查询库/框架文档、API 用法、最新版本信息 | 获取最新技术文档上下文 |
 | **memory** | 用户分享偏好、项目约定、重要信息 | 跨会话持久化知识图谱 |
 | **claudecode-mcp-async** | 在 Codex/Gemini 中调用 Claude Code | 跨 Agent 异步协作 |
 | **codex-mcp-async** | 在 Claude/Gemini 中调用 Codex | 跨 Agent 异步协作 |
@@ -158,10 +158,10 @@
 - 输出可执行计划，不暴露中间推理
 - 用于：任务分解、方案评估、风险识别
 
-**Exa**:
-- 使用 mcp-remote 连接 `https://mcp.exa.ai/mcp`
-- 获取代码示例、API 模式、技术文档
-- 搜索最新技术信息、博客
+**Context7**:
+- 使用 `@upstash/context7-mcp` 包
+- 获取库/框架的最新官方文档
+- 自动解析库名，返回相关上下文
 
 **Memory**:
 - 核心概念：实体（节点）、关系（有向连接）、观察（原子事实）
