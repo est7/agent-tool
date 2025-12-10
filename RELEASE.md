@@ -69,5 +69,6 @@ git push
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| v0.8.0 | 2025-12-10 | 修复 1mcp 安装目录和 gemini httpUrl 配置 |
 | v0.7.0 | 2025-12-10 | 将 exa-mcp 替换为 context7，重构 mcp.json 配置 |
 | v0.6.0 | - | 初始 Homebrew 发布版本 |
