@@ -49,26 +49,43 @@ show_1mcp_help() {
   agent-tool cfg 1mcp <command>
 
 命令:
-  install     安装 1mcp binary 到 ~/.agents/bin/
-  start       启动 1mcp server（后台运行）
-  stop        停止 1mcp server
-  restart     重启 1mcp server
-  status      查看 1mcp 运行状态
-  enable      设置开机自启（macOS: launchd, Linux: systemd）
-  disable     取消开机自启
-  logs        查看 1mcp 日志（最近 50 行）
-  logs -f     实时跟踪日志
+  install       安装 1mcp binary 到 ~/.agents/bin/
+  start         启动 1mcp server（后台运行）
+  stop          停止 1mcp server
+  restart       重启 1mcp server
+  status        查看 1mcp 运行状态
+  enable        设置开机自启（macOS: launchd, Linux: systemd）
+  disable       取消开机自启
+  logs          查看 1mcp 日志（最近 50 行）
+  logs -f       实时跟踪日志
+  init-project  在当前项目创建 MCP 配置
+                  生成 .mcp.json（Claude Code 项目级配置）
+                  生成 .1mcprc（1mcp proxy 配置）
+                  --preset, -p <name>  使用预设（all/core/agent-cli）
+                  --filter, -f <expr>  使用标签过滤表达式
+                  --force              覆盖已存在的配置文件
+                  --1mcprc-only        只生成 .1mcprc
 
 示例:
-  agent-tool cfg 1mcp install   # 首次安装
-  agent-tool cfg 1mcp start     # 启动服务
-  agent-tool cfg 1mcp status    # 检查状态
-  agent-tool cfg 1mcp logs -f   # 查看实时日志
+  agent-tool cfg 1mcp install        # 首次安装
+  agent-tool cfg 1mcp start          # 启动服务
+  agent-tool cfg 1mcp status         # 检查状态
+  agent-tool cfg 1mcp logs -f        # 查看实时日志
+  agent-tool cfg 1mcp init-project   # 在项目创建 .1mcprc（默认 preset: all）
+  agent-tool cfg 1mcp init-project -p core  # 使用 core preset
 
 配置文件:
-  ~/.agents/mcp.json            # MCP servers 配置
-  ~/.agents/1mcp.pid            # PID 文件
-  ~/.agents/logs/1mcp.log       # 日志文件
+  ~/.agents/mcp.json              # MCP servers 唯一可信源
+  ~/.config/1mcp/mcp.json         # 软链接 → ~/.agents/mcp.json
+  <project>/.mcp.json             # Claude Code 项目级配置（指向 1mcp）
+  <project>/.1mcprc               # 1mcp proxy 配置（preset 过滤）
+  ~/.agents/1mcp.pid              # PID 文件
+  ~/.agents/logs/1mcp.log         # 日志文件
+
+预设说明:
+  all        全部 6 个 MCP servers（默认）
+  core       核心 servers（sequential-thinking, exa-mcp, memory）
+  agent-cli  跨 CLI 协作（claudecode/codex/gemini-cli-mcp-async）
 
 端口:
   默认 3050，可通过 ONEMCP_PORT 环境变量修改
@@ -168,8 +185,13 @@ cmd_install() {
   local platform
   platform=$(detect_platform) || return 1
 
-  local download_url="${ONEMCP_RELEASE_BASE}/1mcp-${platform}"
+  # macOS/Linux 使用 .tar.gz，Windows 使用 .zip
+  local archive_ext="tar.gz"
+  local archive_name="1mcp-${platform}.${archive_ext}"
+  local download_url="${ONEMCP_RELEASE_BASE}/${archive_name}"
   local bin_dir="${AGENT_HOME}/bin"
+  local tmp_dir
+  tmp_dir=$(mktemp -d)
 
   log_info "平台: ${platform}"
   log_info "下载 URL: ${download_url}"
@@ -178,19 +200,45 @@ cmd_install() {
   mkdir -p "$bin_dir"
   mkdir -p "$ONEMCP_LOG_DIR"
 
-  # 下载
-  log_info "下载 1mcp binary..."
+  # 下载压缩包
+  log_info "下载 1mcp..."
+  local archive_path="${tmp_dir}/${archive_name}"
   if command -v curl &>/dev/null; then
-    curl -fSL -o "$ONEMCP_BIN" "$download_url"
+    curl -fSL -o "$archive_path" "$download_url"
   elif command -v wget &>/dev/null; then
-    wget -q -O "$ONEMCP_BIN" "$download_url"
+    wget -q -O "$archive_path" "$download_url"
   else
     log_error "需要 curl 或 wget"
+    rm -rf "$tmp_dir"
     return 1
   fi
 
-  # 设置执行权限
+  # 解压
+  log_info "解压..."
+  tar -xzf "$archive_path" -C "$tmp_dir"
+
+  # 查找并移动二进制文件
+  # 优先查找带平台后缀的文件（如 1mcp-darwin-arm64），然后查找 1mcp
+  local extracted_bin="${tmp_dir}/1mcp-${platform}"
+  if [[ ! -f "$extracted_bin" ]]; then
+    extracted_bin="${tmp_dir}/1mcp"
+  fi
+  if [[ ! -f "$extracted_bin" ]]; then
+    # 可能在子目录中，或者文件名不同
+    extracted_bin=$(find "$tmp_dir" -name "1mcp*" -type f ! -name "*.tar.gz" | head -n 1)
+  fi
+
+  if [[ -z "$extracted_bin" || ! -f "$extracted_bin" ]]; then
+    log_error "解压后未找到 1mcp 二进制文件"
+    rm -rf "$tmp_dir"
+    return 1
+  fi
+
+  mv "$extracted_bin" "$ONEMCP_BIN"
   chmod +x "$ONEMCP_BIN"
+
+  # 清理临时目录
+  rm -rf "$tmp_dir"
 
   # 验证安装
   if "$ONEMCP_BIN" --version &>/dev/null; then
@@ -205,6 +253,23 @@ cmd_install() {
   if [[ ! -f "$ONEMCP_CONFIG" ]]; then
     generate_default_config
   fi
+
+  # 创建软链接：~/.config/1mcp/mcp.json → ~/.agents/mcp.json
+  # 1mcp 官方默认读取 ~/.config/1mcp/mcp.json，我们将其指向唯一可信源
+  local onemcp_official_dir="$HOME/.config/1mcp"
+  local onemcp_official_config="${onemcp_official_dir}/mcp.json"
+
+  mkdir -p "$onemcp_official_dir"
+
+  if [[ -L "$onemcp_official_config" ]]; then
+    rm -f "$onemcp_official_config"
+  elif [[ -f "$onemcp_official_config" ]]; then
+    mv "$onemcp_official_config" "${onemcp_official_config}.bak"
+    log_warn "已备份: ${onemcp_official_config}.bak"
+  fi
+
+  ln -sf "$ONEMCP_CONFIG" "$onemcp_official_config"
+  log_info "软链接: $onemcp_official_config → $ONEMCP_CONFIG"
 }
 
 cmd_start() {
@@ -508,38 +573,137 @@ generate_default_config() {
     "sequential-thinking": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
-      "tags": ["core", "thinking"]
+      "tags": ["core", "all"]
     },
     "exa-mcp": {
       "command": "npx",
       "args": ["-y", "mcp-remote", "https://mcp.exa.ai/mcp"],
-      "tags": ["core", "search"]
+      "tags": ["core", "all"]
     },
     "memory": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-memory"],
-      "tags": ["core", "memory"]
+      "tags": ["core", "all"]
     },
     "claudecode-mcp-async": {
       "command": "uvx",
       "args": ["claudecode-mcp-async"],
-      "tags": ["async", "claude"]
+      "tags": ["agent-cli", "all"]
     },
     "codex-mcp-async": {
       "command": "uvx",
       "args": ["codex-mcp-async"],
-      "tags": ["async", "codex"]
+      "tags": ["agent-cli", "all"]
     },
     "gemini-cli-mcp-async": {
       "command": "uvx",
       "args": ["gemini-cli-mcp-async"],
-      "tags": ["async", "gemini"]
+      "tags": ["agent-cli", "all"]
     }
   }
 }
 EOF
 
   log_info "配置已生成"
+}
+
+# 在当前项目创建 .mcp.json 配置文件（Claude Code 项目级 MCP 配置）
+# 同时支持生成 .1mcprc（1mcp proxy 配置）
+cmd_init_project() {
+  local preset="all"  # 默认使用 all
+  local filter=""
+  local force=false
+  local onemcp_only=false  # 只生成 .1mcprc
+
+  # 解析参数
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --preset|-p)
+        preset="$2"
+        shift 2
+        ;;
+      --filter|-f)
+        filter="$2"
+        shift 2
+        ;;
+      --force)
+        force=true
+        shift
+        ;;
+      --1mcprc-only)
+        onemcp_only=true
+        shift
+        ;;
+      -h|--help)
+        echo "用法: agent-tool cfg 1mcp init-project [选项]"
+        echo ""
+        echo "在当前项目创建 MCP 配置文件："
+        echo "  - .mcp.json   Claude Code 项目级 MCP 配置（指向 1mcp HTTP 端点）"
+        echo "  - .1mcprc     1mcp proxy 配置（用于 preset 过滤）"
+        echo ""
+        echo "选项:"
+        echo "  --preset, -p <name>  使用预设（all/core/agent-cli），默认: all"
+        echo "  --filter, -f <expr>  使用标签过滤表达式（如 \"core OR agent-cli\"）"
+        echo "  --force              覆盖已存在的配置文件"
+        echo "  --1mcprc-only        只生成 .1mcprc，不生成 .mcp.json"
+        echo ""
+        echo "预设说明:"
+        echo "  all        全部 6 个 MCP servers"
+        echo "  core       核心 servers（sequential-thinking, exa-mcp, memory）"
+        echo "  agent-cli  跨 CLI 协作（claudecode/codex/gemini-cli-mcp-async）"
+        return 0
+        ;;
+      *)
+        log_error "未知参数: $1"
+        return 1
+        ;;
+    esac
+  done
+
+  local mcpfile=".mcp.json"
+  local rcfile=".1mcprc"
+
+  # 生成 .mcp.json（Claude Code 项目级配置）
+  if [[ "$onemcp_only" != true ]]; then
+    if [[ -f "$mcpfile" ]] && [[ "$force" != true ]]; then
+      log_warn "$mcpfile 已存在，使用 --force 覆盖"
+    else
+      cat > "$mcpfile" <<EOF
+{
+  "mcpServers": {
+    "1mcp": {
+      "type": "http",
+      "url": "http://127.0.0.1:${ONEMCP_PORT}/mcp"
+    }
+  }
+}
+EOF
+      log_info "已创建 $mcpfile (1mcp HTTP 端点)"
+    fi
+  fi
+
+  # 生成 .1mcprc（1mcp proxy 配置）
+  if [[ -f "$rcfile" ]] && [[ "$force" != true ]]; then
+    log_warn "$rcfile 已存在，使用 --force 覆盖"
+  else
+    if [[ -n "$filter" ]]; then
+      cat > "$rcfile" <<EOF
+{
+  "filter": "$filter"
+}
+EOF
+      log_info "已创建 $rcfile (filter: $filter)"
+    else
+      cat > "$rcfile" <<EOF
+{
+  "preset": "$preset"
+}
+EOF
+      log_info "已创建 $rcfile (preset: $preset)"
+    fi
+  fi
+
+  log_info "可用 preset: all, core, agent-cli"
 }
 
 # ============================================================================
@@ -551,14 +715,15 @@ main() {
   shift || true
 
   case "$cmd" in
-    install)  cmd_install "$@" ;;
-    start)    cmd_start "$@" ;;
-    stop)     cmd_stop "$@" ;;
-    restart)  cmd_restart "$@" ;;
-    status)   cmd_status "$@" ;;
-    enable)   cmd_enable "$@" ;;
-    disable)  cmd_disable "$@" ;;
-    logs)     cmd_logs "$@" ;;
+    install)      cmd_install "$@" ;;
+    start)        cmd_start "$@" ;;
+    stop)         cmd_stop "$@" ;;
+    restart)      cmd_restart "$@" ;;
+    status)       cmd_status "$@" ;;
+    enable)       cmd_enable "$@" ;;
+    disable)      cmd_disable "$@" ;;
+    logs)         cmd_logs "$@" ;;
+    init-project) cmd_init_project "$@" ;;
     help|--help|-h)
       show_1mcp_help
       ;;

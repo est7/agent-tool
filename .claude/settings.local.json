@@ -17,7 +17,11 @@
       "Bash(git checkout:*)",
       "Bash(chmod:*)",
       "Bash(./agent-tool.sh cfg:*)",
-      "Bash(./agent-tool.sh doctor:*)"
+      "Bash(./agent-tool.sh doctor:*)",
+      "Bash(curl:*)",
+      "Bash(tar:*)",
+      "Bash(git -C /Users/est8/scripts/agent-tool show HEAD:.mcp.json)",
+      "Bash(/Users/est8/scripts/agent-tool/agent-tool.sh:*)"
     ]
   },
   "enabledMcpjsonServers": [

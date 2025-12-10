@@ -210,14 +210,14 @@ EOF
         cat > "${AGENT_HOME}/README.md" <<'EOF'
 # 统一配置目录 ($AGENT_HOME)
 
-这是个人的「AI 配置单一真相（Single Source of Truth）」仓库，用来统一管理：
+这是个人的「Agent 配置单一真相（Single Source of Truth）」目录，用来集中管理：
 
-- 全局说明书：AGENTS.md
-- 各种 Slash 命令 / Prompt 模板：commands/
-- 各种 Skill 定义：skills/
-- MCP 配置 Snippet：mcp/
+- 全局说明书：`AGENTS.md`（persona + 编码规则）
+- 通用命令模板：`commands/`（Slash 命令 / prompts）
+- 可复用 Skills：`skills/`
+- MCP 统一配置：`mcp.json`（1mcp 网关配置）
 
-目前主要面向三套工具：
+当前主要服务于三类客户端：
 
 - Claude Code
 - Codex CLI / Codex in IDE
@@ -229,132 +229,100 @@ EOF
 
 ```text
 $AGENT_HOME
-├── AGENTS.md                 # 全局 persona + 编码规则（被多工具读取）
+├── AGENTS.md                 # 用户级 AGENTS 说明（本目录的"总纲"）
 ├── README.md                 # 本说明文件
+├── mcp.json                  # 1mcp 统一 MCP 配置（所有 MCP servers 定义在此）
+├── bin/
+│   └── 1mcp                  # 1mcp 二进制文件
+├── logs/
+│   └── 1mcp.log              # 1mcp 运行日志
 ├── skills/
-│   ├── shared/               # Claude + Codex 等共享的 Skill
-│   │   └── sayhello/         # 示例 Skill：用于验证管线
-│   │       ├── SKILL.md
-│   │       └── scripts/run.sh
-│   ├── claude-only/          # 仅 Claude 使用的 Skill
-│   └── codex-only/           # 仅 Codex 使用的 Skill
+│   ├── shared/               # Claude / Codex 共享 Skill
+│   │   └── sayhello/         # 示例 Skill：验证管线用
+│   ├── claude-only/          # 仅 Claude 使用
+│   └── codex-only/           # 仅 Codex 使用
 ├── commands/
 │   ├── shared/               # 通用 Slash 命令
-│   │   └── review.md         # 示例：/review 统一 Code Review 模板
-│   ├── claude-only/          # 仅 Claude 使用的命令
-│   ├── codex-only/           # 仅 Codex 使用的命令
-│   └── gemini-only/          # 仅 Gemini 使用的命令/说明
+│   │   └── plan.md           # 示例：/plan 任务规划命令
+│   ├── claude-only/          # 仅 Claude 使用
+│   ├── codex-only/           # 仅 Codex 使用
+│   └── gemini-only/          # 仅 Gemini 使用
 ├── output-styles/
-│   ├── shared/               # 通用输出风格（Claude/Codex 等可共享）
+│   ├── shared/               # 通用输出风格（Claude / Codex 等共享）
 │   └── claude-only/          # 仅 Claude 使用的输出风格
-├── mcp/
-│   ├── claude.json.snippet   # Claude 用的 .mcp.json 片段（不含密钥）
-│   ├── gemini.json.snippet   # Gemini 用的 settings.json 片段（不含密钥）
-│   └── codex.toml.snippet    # Codex 用的 config.toml 片段（只放 [mcp_servers.*]）
-└── .mcp.json                 # 把 $AGENT_HOME 本身当成一个“项目”时的 MCP 配置骨架
-````
-
----
-
-## 三件套脚本说明（脚本位于 ~/scripts/agent-tool/cfg 和 doctor）
-
-### 1. 全局初始化：install_symlinks.sh
-
-位置：`~/scripts/agent-tool/cfg/install_symlinks.sh`（或通过 `agent-tool cfg init` 调用）
-
-作用：
-
-* 初始化 `$AGENT_HOME` 基本目录结构和示例文件（仅在不存在时创建）
-* 为三套工具建立「指向 $AGENT_HOME 的软链接」：
-
-  * `~/.claude/CLAUDE.md -> $AGENT_HOME/AGENTS.md`
-  * `~/.claude/commands/* -> $AGENT_HOME/commands/{shared,claude-only}`
-  * `~/.claude/skills/*   -> $AGENT_HOME/skills/{shared,claude-only}`
-  * `~/.claude/output-styles/* -> $AGENT_HOME/output-styles/{shared,claude-only}`
-  * `~/.codex/prompts/*   -> $AGENT_HOME/commands/{shared,codex-only}`
-  * `~/.codex/skills/*    -> $AGENT_HOME/skills/{shared,codex-only}`
-  * `~/.codex/AGENTS.md   -> $AGENT_HOME/AGENTS.md`
-  * `~/.gemini/AGENTS.md  -> $AGENT_HOME/AGENTS.md`
-* 如果已安装过，可以用 `--uninstall` 把这些软链接干净移除
-
-示例：
-
-```bash
-# 只看看会做什么（推荐新机器先这样跑一遍）
-~/scripts/agent-tool/cfg/install_symlinks.sh -n -v
-
-# 实际执行全局初始化（新机器第一次）
-~/scripts/agent-tool/cfg/install_symlinks.sh -v
-
-# 如果某些路径已被手工文件占用，且你确认要用统一配置目录接管：
-~/scripts/agent-tool/cfg/install_symlinks.sh -v --force
-
-# 想撤销（只移除由本脚本创建的软链接，不删真实目录/文件）
-~/scripts/agent-tool/cfg/install_symlinks.sh -u -v
-```
-
-### 2. 项目级 MCP：project_mcp_setup.sh
-
-位置：`~/scripts/agent-tool/cfg/project_mcp_setup.sh`（或通过 `agent-tool cfg mcp` 调用）
-
-在「项目根目录」中运行，用 `$AGENT_HOME/mcp` 下的 snippet 生成项目级配置：
-
-* Claude: `./.mcp.json`
-* Gemini: `./.gemini/settings.json`
-* Codex: `./.codex/config.toml`（配合项目内 `CODEX_HOME=./.codex` 使用）
-
-示例：
-
-```bash
-cd /path/to/your/project
-~/scripts/agent-tool/cfg/project_mcp_setup.sh -v
-```
-
-### 3. 自检：cfg_doctor.sh
-
-位置：`~/scripts/agent-tool/doctor/cfg_doctor.sh`（或通过 `agent-tool cfg selftest` / `agent-tool doctor <platform>` 调用）
-
-作用：
-
-* 检查 `$AGENT_HOME` 是否存在关键文件/目录
-* 校验 `mcp/*.json.snippet` 的 JSON 语法（依赖 jq）
-* 检查几个关键软链接是否存在、是否为 symlink
-
-示例：
-
-```bash
-~/scripts/agent-tool/doctor/cfg_doctor.sh -v
+├── hooks/
+│   └── claude/               # Claude Code hooks
+└── agents/
+    └── claude/               # Claude Code 自定义 subagents
 ```
 
 ---
 
-## 新机器上的推荐工作流
+## 快速开始
 
-1. 克隆配置仓库：
+### 1. 全局初始化
 
-   ```bash
-   git clone git@github.com:yourname/dot-agents.git ~/.agents
-   ```
+```bash
+./agent-tool.sh cfg init        # 初始化目录结构 + 建立软链接
+./agent-tool.sh cfg selftest -v # 自检配置是否正确
+```
 
-2. 全局初始化：
+### 2. 安装并启动 1mcp
 
-   ```bash
-   ~/scripts/agent-tool/cfg/install_symlinks.sh -n -v
-   ~/scripts/agent-tool/cfg/install_symlinks.sh -v
-   ```
+```bash
+./agent-tool.sh cfg 1mcp install   # 下载安装 1mcp 二进制
+./agent-tool.sh cfg 1mcp start     # 启动 1mcp 服务（后台运行）
+./agent-tool.sh cfg 1mcp status    # 查看运行状态
+```
 
-3. 针对常用项目，在项目根目录生成项目级 MCP 配置：
+### 3. 设置开机自启（可选）
 
-   ```bash
-   cd ~/workspace/your-project
-   ~/scripts/agent-tool/cfg/project_mcp_setup.sh -v
-   ```
+```bash
+./agent-tool.sh cfg 1mcp enable    # macOS: launchd, Linux: systemd
+```
 
-4. 最后跑一次自检确认整体环境健康：
+---
 
-   ```bash
-   ~/scripts/agent-tool/doctor/cfg_doctor.sh -v
-   ```
+## 1mcp 统一 MCP 网关
+
+1mcp 是一个统一的 MCP 网关服务，它：
+
+- 在本地启动一个 HTTP 服务（默认端口 3050）
+- 读取 `~/.agents/mcp.json` 中定义的所有 MCP servers
+- 提供统一的 HTTP 端点供各 Agent CLI 连接
+
+**好处**：
+- 所有 MCP servers 集中定义在 `mcp.json`
+- 各 Agent CLI 只需连接 `http://127.0.0.1:3050/mcp` 一个端点
+- 新增 MCP server 只需修改 `mcp.json` 并重启 1mcp
+
+**常用命令**：
+
+```bash
+./agent-tool.sh cfg 1mcp install   # 安装 1mcp
+./agent-tool.sh cfg 1mcp start     # 启动服务
+./agent-tool.sh cfg 1mcp stop      # 停止服务
+./agent-tool.sh cfg 1mcp restart   # 重启服务（修改 mcp.json 后）
+./agent-tool.sh cfg 1mcp status    # 查看状态
+./agent-tool.sh cfg 1mcp logs -f   # 实时跟踪日志
+```
+
+---
+
+## 刷新配置
+
+新增 command/skill 后，运行：
+
+```bash
+./agent-tool.sh cfg refresh   # 刷新软链接
+```
+
+---
+
+## 更多信息
+
+- 1mcp 官方文档：https://docs.1mcp.app/
+- 运行 `./agent-tool.sh --help` 查看所有命令
 
 EOF
         log_verbose "已创建 README.md（内联默认内容）"
