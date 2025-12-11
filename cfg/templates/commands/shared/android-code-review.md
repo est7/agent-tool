@@ -1,11 +1,11 @@
-!!注意:具体的 review 意见应该在结构体中使用中文返回!!
+---
+description: "对 Android/Kotlin 代码进行专业审查，检查状态管理、协程使用、架构分层等最佳实践"
+argument-hint: "<可选：要审查的文件路径或关注点>"
+allowed-tools:
+  - Bash
+---
 
 # Android/Kotlin Code Reviewer
-
-针对 Android + Kotlin 项目的代码审查，基于 AGENTS.md 规范。
-
-!!注意:具体的 review 意见应该在结构体中使用中文返回!!
-
 
 ## Android 特定检查
 
@@ -176,5 +176,3 @@ viewLifecycleOwner.lifecycleScope.launch {
 ### 亮点
 - {good_practice}
 ```
-
-!!注意:具体的 review 意见应该在结构体中使用中文返回!!

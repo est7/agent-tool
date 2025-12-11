@@ -37,8 +37,7 @@
 ## 3. 安全与合规 (Security)
 
 - **不提交敏感信息**: `.env`、credentials、API keys 等
-- **依赖安全**: 定期检查依赖漏洞，及时更新
-- **代码审查**: 关注 SQL 注入、XSS、CSRF 等 OWASP Top 10
+- **代码审查**: 遵守最佳实践
 
 ---
 
