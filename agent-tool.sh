@@ -119,12 +119,13 @@ help_command() {
   cfg)
     cat <<EOF
 cfg 子命令:
-  cfg init              # 初始化统一配置目录软链 (install_symlinks.sh -v)
-  cfg init-force        # 初始化并强制覆盖非软链路径 (--force)
-  cfg refresh           # 新增 commands/skills/hooks/agents 后刷新软链 (-U)
-  cfg selftest [--v]    # 自检配置目录及软链状态
-  cfg mcp [options]     # 在项目根生成 .mcp.json + .1mcprc (等价于 cfg 1mcp init-project)
-  cfg 1mcp <command>    # 管理 1mcp 统一 MCP 网关 (install|start|stop|status|...)
+  cfg init                     # 初始化统一配置目录软链 (install_symlinks.sh -v)
+  cfg init rules <type>...     # 安装项目级 rules 到 .claude/rules/ (android|ios|web|backend)
+  cfg init-force               # 初始化并强制覆盖非软链路径 (--force)
+  cfg refresh                  # 新增 commands/skills/hooks/agents/rules 后刷新软链 (-U)
+  cfg selftest [--v]           # 自检配置目录及软链状态
+  cfg mcp [options]            # 在项目根生成 .mcp.json + .1mcprc (等价于 cfg 1mcp init-project)
+  cfg 1mcp <command>           # 管理 1mcp 统一 MCP 网关 (install|start|stop|status|...)
 EOF
     ;;
   ws)
@@ -307,6 +308,72 @@ run_cfg_script() {
   "$path" "$@"
 }
 
+# 安装项目级 rules 到 .claude/rules/
+init_project_rules() {
+  local templates_dir="${CFG_DIR}/templates/rules-templates"
+  local target_dir=".claude/rules"
+  local available_types=("android" "ios" "web" "backend")
+
+  # 颜色定义
+  local RED='\033[0;31m'
+  local GREEN='\033[0;32m'
+  local YELLOW='\033[0;33m'
+  local NC='\033[0m'
+
+  # 无参数时显示帮助
+  if [[ $# -eq 0 ]]; then
+    echo "用法: $(basename "$0") cfg init rules <type>..."
+    echo ""
+    echo "将项目级 rules 模板安装到 .claude/rules/ 目录"
+    echo ""
+    echo "可用类型:"
+    for t in "${available_types[@]}"; do
+      if [[ -f "${templates_dir}/${t}.md" ]]; then
+        echo "  ${t}"
+      fi
+    done
+    echo ""
+    echo "示例:"
+    echo "  $(basename "$0") cfg init rules android"
+    echo "  $(basename "$0") cfg init rules android web"
+    return 1
+  fi
+
+  # 检查模板目录是否存在
+  if [[ ! -d "${templates_dir}" ]]; then
+    agent_error "E_RULES_TEMPLATES_NOT_FOUND" "找不到 rules 模板目录: ${templates_dir}"
+    return 1
+  fi
+
+  # 创建目标目录
+  mkdir -p "${target_dir}"
+
+  local success_count=0
+  local fail_count=0
+
+  for type in "$@"; do
+    local src="${templates_dir}/${type}.md"
+    if [[ -f "${src}" ]]; then
+      cp "${src}" "${target_dir}/${type}.md"
+      echo -e "${GREEN}[✓]${NC} 已安装 rules: ${type}.md → ${target_dir}/"
+      ((success_count++))
+    else
+      echo -e "${RED}[✗]${NC} 未找到 rules 模板: ${type}"
+      echo "    可用类型: ${available_types[*]}"
+      ((fail_count++))
+    fi
+  done
+
+  echo ""
+  if [[ ${success_count} -gt 0 ]]; then
+    echo -e "${GREEN}完成:${NC} 已安装 ${success_count} 个 rules 文件到 ${target_dir}/"
+  fi
+  if [[ ${fail_count} -gt 0 ]]; then
+    echo -e "${YELLOW}警告:${NC} ${fail_count} 个类型未找到"
+    return 1
+  fi
+}
+
 cfg_command() {
   shift # 去掉 "cfg"
   local sub="${1:-}"
@@ -318,7 +385,14 @@ cfg_command() {
 
   case "$sub" in
   init)
-    run_cfg_script "install_symlinks.sh" -v
+    shift || true
+    # 检查是否是 init rules 子命令
+    if [[ "${1:-}" == "rules" ]]; then
+      shift || true
+      init_project_rules "$@"
+    else
+      run_cfg_script "install_symlinks.sh" -v "$@"
+    fi
     ;;
   init-force)
     run_cfg_script "install_symlinks.sh" -v --force
@@ -356,7 +430,7 @@ cfg_command() {
     ;;
   *)
     agent_error "E_SUBCOMMAND_UNKNOWN" "未知 cfg 子命令: ${sub}"
-    echo "可用: init | init-force | refresh | selftest | mcp | 1mcp"
+    echo "可用: init | init rules <type> | init-force | refresh | selftest | mcp | 1mcp"
     exit 1
     ;;
   esac

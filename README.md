@@ -42,7 +42,8 @@
 - `<scope>`: 任务范围, 使用 kebab-case, 例如: `user-profile-header`
 - `cfg` 子命令:
   - `cfg init` / `cfg init-force`: 运行 `cfg/install_symlinks.sh -v [--force]`
-  - `cfg refresh`: 刷新文件级软链（新增 commands/skills/hooks/agents 后用）
+  - `cfg init rules <type>...`: 安装项目级 rules 到 `.claude/rules/` (android|ios|web|backend)
+  - `cfg refresh`: 刷新文件级软链（新增 commands/skills/hooks/agents/rules 后用）
   - `cfg selftest [--v]`: 自检配置目录与软链状态
   - `cfg mcp [options]`: 在项目根生成项目级 .1mcprc 配置
   - `cfg 1mcp <cmd>`: 管理 1mcp 统一 MCP 网关（详见下方 1mcp 章节）
@@ -303,11 +304,15 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 # 强制接管非软链路径
 ./agent-tool.sh cfg init-force
 
-# 新增 commands/skills/hooks/agents 后刷新软链
+# 新增 commands/skills/hooks/agents/rules 后刷新软链
 ./agent-tool.sh cfg refresh
 
 # 自检配置目录及软链
 ./agent-tool.sh cfg selftest -v
+
+# 安装项目级 rules（在项目根目录执行）
+./agent-tool.sh cfg init rules android        # 安装 Android/Kotlin 规范
+./agent-tool.sh cfg init rules android web    # 同时安装多个
 
 # 在项目根生成项目级 .1mcprc 配置
 ./agent-tool.sh cfg mcp

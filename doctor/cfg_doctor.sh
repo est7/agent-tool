@@ -9,16 +9,17 @@ set -euo pipefail
 #   - 检查：
 #       * $AGENT_HOME 是否存在
 #       * AGENTS.md 是否存在（没有也能用，但强烈建议有）
-#       * commands/、skills/、hooks/、agents/、mcp/ 等关键目录
-#       * mcp/*.json.snippet 的 JSON 语法（依赖 jq）
+#       * commands/、skills/、hooks/、agents/、mcp/、rules/ 等关键目录
+#       * mcp/mcp.json 的 JSON 语法（依赖 jq，用于 1mcp 配置）
 #       * 关键软链接：
 #           - ~/.claude/CLAUDE.md / ~/.codex/AGENTS.md / ~/.gemini/AGENTS.md
-#           - ~/.claude/commands/*    -> $AGENT_HOME/commands/{shared,claude-only}
-#           - ~/.claude/skills/*      -> $AGENT_HOME/skills/{shared,claude-only}
-#           - ~/.claude/hooks/*       -> $AGENT_HOME/hooks/claude
-#           - ~/.claude/agents/*      -> $AGENT_HOME/agents/claude
-#           - ~/.codex/prompts/*      -> $AGENT_HOME/commands/{shared,codex-only}
-#           - ~/.codex/skills/*       -> $AGENT_HOME/skills/{shared,codex-only}
+#           - ~/.claude/rules      -> $AGENT_HOME/rules
+#           - ~/.claude/commands/* -> $AGENT_HOME/commands/{shared,claude-only}
+#           - ~/.claude/skills/*   -> $AGENT_HOME/skills/{shared,claude-only}
+#           - ~/.claude/hooks/*    -> $AGENT_HOME/hooks/claude
+#           - ~/.claude/agents/*   -> $AGENT_HOME/agents/claude
+#           - ~/.codex/prompts/*   -> $AGENT_HOME/commands/{shared,codex-only}
+#           - ~/.codex/skills/*    -> $AGENT_HOME/skills/{shared,codex-only}
 # ═══════════════════════════════════════════════════════════════════════════════
 
 AGENT_HOME="${AGENT_HOME:-${HOME}/.agents}"
@@ -181,12 +182,12 @@ main() {
   check_dir "${AGENT_HOME}/hooks"     "hooks 目录"
   check_dir "${AGENT_HOME}/agents"    "agents 目录"
   check_dir "${AGENT_HOME}/mcp"       "mcp 目录"
+  check_dir "${AGENT_HOME}/rules"     "rules 目录"
 
   echo ""
 
-  # MCP JSON snippet 语法校验
-  check_json_valid "${AGENT_HOME}/mcp/claude.json.snippet" "Claude MCP snippet"
-  check_json_valid "${AGENT_HOME}/mcp/gemini.json.snippet" "Gemini MCP snippet"
+  # 1mcp 配置文件语法校验
+  check_json_valid "${AGENT_HOME}/mcp/mcp.json" "1mcp 配置"
 
   echo ""
 
@@ -194,6 +195,7 @@ main() {
   check_symlink "${HOME}/.claude/CLAUDE.md" "Claude 全局说明文件" "${AGENT_HOME}"
   check_symlink "${HOME}/.codex/AGENTS.md"  "Codex 全局说明文件"  "${AGENT_HOME}"
   check_symlink "${HOME}/.gemini/AGENTS.md" "Gemini 全局说明文件" "${AGENT_HOME}"
+  check_symlink "${HOME}/.claude/rules"     "Claude rules 目录"   "${AGENT_HOME}"
 
   check_dir_links "${HOME}/.claude/commands" "Claude commands 软链接" "${AGENT_HOME}/commands"
   check_dir_links "${HOME}/.claude/skills"   "Claude skills 软链接"   "${AGENT_HOME}/skills"

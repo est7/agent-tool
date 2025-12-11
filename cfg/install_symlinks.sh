@@ -349,6 +349,8 @@ ensure_dir "${AGENT_HOME}/hooks/claude"
 
 ensure_dir "${AGENT_HOME}/agents/claude"
 
+ensure_dir "${AGENT_HOME}/rules"
+
   # 示例 Skill：sayhello（从模板目录复制，用于验证 Skill 管线）
 
   local skill_dir="${AGENT_HOME}/skills/shared/sayhello"
@@ -433,6 +435,40 @@ ensure_dir "${AGENT_HOME}/agents/claude"
     shopt -u nullglob
   else
     log_verbose "未找到 output-styles 模板目录: ${output_styles_template_dir}"
+  fi
+
+  # 同步 rules：从模板目录复制到 $AGENT_HOME/rules
+  # init 模式：只复制新文件；upgrade 模式：强制同步所有模板
+
+  local rules_template_dir="${SCRIPT_DIR}/templates/rules"
+
+  if [[ -d "${rules_template_dir}" ]]; then
+    shopt -s nullglob
+    for template in "${rules_template_dir}"/*.md; do
+      local name
+      name="$(basename "${template}")"
+      local dest="${AGENT_HOME}/rules/${name}"
+      if [[ ! -f "${dest}" ]]; then
+        if $DRY_RUN; then
+          log_verbose "将从模板复制 rules: ${name}"
+        else
+          cp "${template}" "${dest}"
+          log_verbose "已从模板复制 rules: ${name}"
+        fi
+      elif $UPGRADE; then
+        if $DRY_RUN; then
+          log_verbose "将更新 rules: ${name}"
+        else
+          cp "${template}" "${dest}"
+          log_verbose "已更新 rules: ${name}"
+        fi
+      else
+        log_verbose "rules 已存在，跳过: ${name}"
+      fi
+    done
+    shopt -u nullglob
+  else
+    log_verbose "未找到 rules 模板目录: ${rules_template_dir}"
   fi
 
 # 生成 1mcp 配置文件 mcp/mcp.json（从模板复制）
@@ -637,6 +673,9 @@ if ! $DRY_RUN; then
 fi
 link_dir_contents "${AGENT_HOME}/agents/claude" "$claude_home/agents"
 
+# Rules: 全局 rules 目录
+safe_link "${AGENT_HOME}/rules" "$claude_home/rules"
+
 # 配置 1mcp HTTP 端点（settings.json）
 configure_claude_1mcp "$claude_home"
 
@@ -748,6 +787,7 @@ log_info "开始移除由本脚本创建的软链接..."
 
 local top_links=(
 "${HOME}/.claude/CLAUDE.md"
+"${HOME}/.claude/rules"
 "${HOME}/.codex/AGENTS.md"
 "${HOME}/.gemini/AGENTS.md"
 )

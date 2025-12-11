@@ -1,8 +1,5 @@
 # AGENTS.md — 全局编码准则
 
-> 版本: 1.0
-> 适用于: Claude Code / Codex CLI / Gemini CLI
-
 ---
 
 ## 1. 我是谁 (Who I Am)
@@ -15,187 +12,21 @@
 
 ---
 
-## 2. 核心原则 (Core Principles)
+## 2. 沟通风格 (Communication)
 
-### 2.1 优先级栈
-
-按以下顺序处理冲突，高优先级规则覆盖低优先级：
-
-1. **正确性** — 代码必须正确工作
-2. **可维护性** — 代码必须易于理解和修改
-3. **性能** — 在满足前两项的基础上优化性能
-4. **简洁性** — 避免不必要的复杂度
-
-### 2.2 工程原则
-
-| 原则 | 含义 |
-|------|------|
-| **KISS** | 保持简单，选择最直接的方案 |
-| **YAGNI** | 不写当前不需要的代码，避免过度设计 |
-| **DRY** | 消除重复，但不过早抽象（重复3次以上再考虑） |
-| **SOLID** | 遵循单一职责、开闭、依赖倒置等原则 |
-
-### 2.3 简洁性定义
-
-- 每个函数/类仅承担**单一职责**
-- 函数长度 ≤30 行，嵌套层级 ≤3 层
-- 可读命名优于聪明技巧
-- 如果需要额外解释，说明实现仍然过于复杂
-
----
-
-## 3. 工作流约定 (Workflow Defaults)
-
-### 3.1 修改前必做
-
-- [ ] 先**阅读**相关代码，理解现有设计
-- [ ] 找到 **2-3 个相似实现**作为参考
-- [ ] 确认**测试框架**和验证方式
-
-### 3.2 修改时原则
-
-- **先给方案，再给 diff** — 复杂改动先说明思路
-- **小步提交** — 每次提交保持可编译、可验证
-- **最小改动** — 只做请求的改动，不擅自"优化"周边代码
-
-### 3.3 破坏性操作确认
-
-以下操作需要**明确确认**后才能执行：
-
-- 删除文件或大段代码
-- 修改数据库 schema
-- 执行 `git push`（特别是 main/master 分支）
-- 安装/卸载依赖
-
----
-
-## 4. 代码风格 (Code Style)
-
-### 4.1 通用规则
-
-- **注释语言**: 中文（简体）
-- **命名**: 英文，遵循语言惯例（camelCase/snake_case）
-- **格式化**: 使用项目既有的格式化工具和配置
-- **Import**: 遵循项目既有的 import 顺序和分组
-
-### 4.2 语言特定规则
-
-<!-- 根据你常用的语言填写，以下是示例 -->
-
-**Kotlin/Android**:
-- 使用协程 + Flow，避免 RxJava
-- 优先 constructor injection
-- ViewModel 中不持有 Context
-
-**TypeScript/Web**:
-- 严格模式，开启所有 strict 选项
-- 优先 const/let，禁用 var
-- 使用 async/await，避免回调地狱
-
-**Python**:
-- 遵循 PEP 8
-- 使用 type hints
-- 优先 pathlib 处理路径
-
----
-
-## 5. 测试要求 (Testing)
-
-- **每次实现**必须提供测试或验证方式
-- **测试覆盖**: 正常流程 + 边界条件 + 错误恢复
-- **测试命名**: 清晰描述被测场景，例如 `test_login_with_invalid_password_returns_401`
-- 缺失测试时，必须在交付中说明原因和补测计划
-
----
-
-## 6. 工具与环境 (Tools & Environment)
-
-### 6.1 开发环境
-
-- **IDE**: <!-- 例如: VS Code / IntelliJ IDEA / Android Studio -->
-- **终端**: <!-- 例如: iTerm2 / Windows Terminal / macOS Terminal -->
-- **Shell**: <!-- 例如: zsh / bash / fish -->
-
-### 6.2 构建工具
-
-| 平台 | 工具 |
-|------|------|
-| Android | Gradle (Kotlin DSL) |
-| iOS | Xcode / SPM |
-| Web | pnpm / npm |
-| Python | uv / pip |
-
-### 6.3 版本控制
-
-- **Git 工作流**: <!-- 例如: GitHub Flow / GitLab Flow / trunk-based -->
-- **提交格式**: `type: message`，type 为 `feat|fix|refactor|chore|docs|test`
-- **分支命名**: `feat/xxx` / `fix/xxx` / `chore/xxx`
-
----
-
-## 7. MCP 工具使用 (MCP Tools)
-
-### 7.1 全局原则
-
-- **离线优先**: 能用本地工具完成的，不调用外部 MCP
-- **单轮单工具**: 每轮对话最多调用 1-2 个 MCP 服务
-- **最小必要**: 限制查询范围，避免过度数据捕获
-- **可追溯**: 引用外部信息时标注来源
-
-### 7.2 服务选择与触发时机
-
-| 服务 | 触发时机 | 用途 |
-|------|---------|------|
-| **sequential-thinking** | 分解复杂问题、规划步骤、评估方案 | 生成可执行计划与里程碑 |
-| **context7** | 查询库/框架文档、API 用法、最新版本信息 | 获取最新技术文档上下文 |
-| **memory** | 用户分享偏好、项目约定、重要信息 | 跨会话持久化知识图谱 |
-| **claudecode-mcp-async** | 在 Codex/Gemini 中调用 Claude Code | 跨 Agent 异步协作 |
-| **codex-mcp-async** | 在 Claude/Gemini 中调用 Codex | 跨 Agent 异步协作 |
-| **gemini-cli-mcp-async** | 在 Claude/Codex 中调用 Gemini | 跨 Agent 异步协作 |
-
-**Sequential Thinking**:
-- 步骤上限 6-10 步，每步一句话
-- 输出可执行计划，不暴露中间推理
-- 用于：任务分解、方案评估、风险识别
-
-**Context7**:
-- 使用 `@upstash/context7-mcp` 包
-- 获取库/框架的最新官方文档
-- 自动解析库名，返回相关上下文
-
-**Memory**:
-- 核心概念：实体（节点）、关系（有向连接）、观察（原子事实）
-- 常用工具：`create_entities`、`add_observations`、`search_nodes`
-- 用于：记录用户偏好、项目约定、技术决策
-
-**Async MCP (跨 Agent 协作)**:
-- `claudecode-mcp-async` / `codex-mcp-async` / `gemini-cli-mcp-async`
-- 允许不同 Agent CLI 之间互相调用
-- 通过 uvx 运行，无需额外配置
-
-### 7.3 失败降级
-
-- 首选服务失败时，尝试备用服务
-- 全部失败时，提供保守的本地答案并标注不确定性
-- 记录失败原因，便于后续优化
-
----
-
-## 8. 沟通风格 (Communication)
-
-### 8.1 语言规则
+### 2.1 语言规则
 
 - **默认**: 中文思考、中文回答
 - **代码**: 变量名、函数名使用英文；注释使用中文
 - **可选**: 复杂技术问题可请求英文模式
 
-### 8.2 输出原则
+### 2.2 输出原则
 
 - **直接**: 先给结论，再给解释
 - **简洁**: 避免冗长，保持可操作性
 - **诚实**: 不确定时明确说明，不猜测
 
-### 8.3 交互方式
+### 2.3 交互方式
 
 - **复杂任务**: 先确认理解，给出方案，获得同意后再执行
 - **简单任务**: 直接执行，事后说明
@@ -203,7 +34,7 @@
 
 ---
 
-## 9. 安全与合规 (Security)
+## 3. 安全与合规 (Security)
 
 - **不提交敏感信息**: `.env`、credentials、API keys 等
 - **依赖安全**: 定期检查依赖漏洞，及时更新
@@ -211,9 +42,14 @@
 
 ---
 
-## 10. 项目级覆盖 (Project Override)
+## 4. 项目级覆盖 (Project Override)
 
 本文件为全局配置。如果项目根目录存在 `CLAUDE.md` 或 `AGENTS.md`，项目级配置将覆盖本文件中的相应部分。
+
+**模块化 Rules**:
+- 全局 rules 位于 `~/.claude/rules/`，包含核心原则和 MCP 工具规范
+- 项目级 rules 通过 `agent-tool cfg init rules <type>` 安装到 `.claude/rules/`
+- 可用类型: `android`, `ios`, `web`, `backend`
 
 ---
 
