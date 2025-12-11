@@ -81,3 +81,11 @@
 
 - [ ] 在 `cfg/index.sh` 中继续抽取复用工具函数（如带颜色的 log_info/log_warn/log_success），并在各模块中替换重复实现，统一日志格式。
 - [ ] 为 ws/build/doctor 模块增加轻量级的「调试 verbose 模式」开关（例如读取 `AGENT_TOOL_DEBUG` 环境变量），控制额外的调试输出，不影响默认体验。
+
+## 蓝湖命令自动化（后续）
+
+- [ ] 基于当前 `lanhu-extract.md` 模板，设计并实现一个 `lanhu` 命令：
+  - [ ] 在 `.claude/commands/lanhu.md` 中增加带 frontmatter 的命令定义，支持 `lanhu "<DDS_URL>"` 一键执行「导航 → 截图 → 复制代码 → 生成 Markdown」流程。
+  - [ ] 截图逻辑改为通过 DDS 快照中第一个 `url` 含有 `merge_image/imgs` 的 `image` 节点截取纯设计图 PNG。
+  - [ ] 规范中间文件路径为 `./{title}/temp/`，将快照/调试 txt 等全部放入该目录，并在命令结束时清理（`rm -rf "./{title}/temp/"`）。
+  - [ ] 复制代码仍通过「点击复制按钮 + 等待 tooltip '复制成功' + pbpaste」实现，保持与现有蓝湖脚本风格一致。
