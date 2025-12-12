@@ -10,10 +10,10 @@
       "args": ["-y", "@upstash/context7-mcp@latest", "--api-key", "YOUR_API_KEY"],
       "tags": ["core", "all", "search"]
     },
-    "memory": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-memory"],
-      "tags": ["core", "all"]
+    "devtools": {
+      "type": "http",
+      "url": "http://localhost:9222/mcp",
+      "tags": ["web", "all"]
     },
     "claudecode-mcp-async": {
       "command": "uvx",

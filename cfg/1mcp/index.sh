@@ -84,8 +84,9 @@ show_1mcp_help() {
 
 预设说明:
   all        全部 6 个 MCP servers（默认）
-  core       核心 servers（sequential-thinking, context7, memory）
+  core       核心 servers（sequential-thinking, context7）
   agent-cli  跨 CLI 协作（claudecode/codex/gemini-cli-mcp-async）
+  web        Web 开发相关（devtools）
 
 端口:
   默认 3050，可通过 ONEMCP_PORT 环境变量修改
@@ -620,8 +621,9 @@ cmd_init_project() {
         echo ""
         echo "预设说明:"
         echo "  all        全部 6 个 MCP servers"
-        echo "  core       核心 servers（sequential-thinking, context7, memory）"
+        echo "  core       核心 servers（sequential-thinking, context7）"
         echo "  agent-cli  跨 CLI 协作（claudecode/codex/gemini-cli-mcp-async）"
+        echo "  web        Web 开发相关（devtools）"
         return 0
         ;;
       *)
@@ -674,7 +676,7 @@ EOF
     fi
   fi
 
-  log_info "可用 preset: all, core, agent-cli"
+  log_info "可用 preset: all, core, agent-cli, web"
 }
 
 # ============================================================================
