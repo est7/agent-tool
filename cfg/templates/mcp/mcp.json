@@ -11,8 +11,8 @@
       "tags": ["core", "all", "search"]
     },
     "devtools": {
-      "type": "http",
-      "url": "http://localhost:9222/mcp",
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"],
       "tags": ["web", "all"]
     },
     "claudecode-mcp-async": {
