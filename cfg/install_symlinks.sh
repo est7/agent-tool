@@ -351,21 +351,35 @@ ensure_dir "${AGENT_HOME}/agents/claude"
 
 ensure_dir "${AGENT_HOME}/rules"
 
-  # 示例 Skill：sayhello（从模板目录复制，用于验证 Skill 管线）
+  # 同步 skills：从模板目录复制到 $AGENT_HOME/skills/shared
+  # init 模式：只复制新目录；upgrade 模式：强制同步所有模板
 
-  local skill_dir="${AGENT_HOME}/skills/shared/sayhello"
-  local template_skill_dir="${SCRIPT_DIR}/templates/skills/sayhello"
+  local skills_template_dir="${SCRIPT_DIR}/templates/skills"
 
-  if [[ -d "${template_skill_dir}" ]]; then
-    ensure_dir "${skill_dir}"
-    if $DRY_RUN; then
-      log_verbose "将从模板复制示例 Skill: ${template_skill_dir} -> ${skill_dir}"
-    else
-      cp -R "${template_skill_dir}/." "${skill_dir}/"
-      log_verbose "已从模板复制示例 Skill: sayhello"
-    fi
+  if [[ -d "${skills_template_dir}" ]]; then
+    shopt -s nullglob
+    for skill_template in "${skills_template_dir}"/*/; do
+      local skill_name
+      skill_name=$(basename "${skill_template}")
+      local skill_dest="${AGENT_HOME}/skills/shared/${skill_name}"
+
+      # 检查是否需要更新
+      if [[ -d "${skill_dest}" ]] && ! $UPGRADE; then
+        log_verbose "Skill 已存在，跳过: ${skill_name}"
+        continue
+      fi
+
+      ensure_dir "${skill_dest}"
+      if $DRY_RUN; then
+        log_verbose "将从模板复制 Skill: ${skill_template} -> ${skill_dest}"
+      else
+        cp -R "${skill_template}/." "${skill_dest}/"
+        log_verbose "已从模板复制示例 Skill: ${skill_name}"
+      fi
+    done
+    shopt -u nullglob
   else
-    log_verbose "未找到 sayhello 模板目录: ${template_skill_dir}，跳过示例 Skill 初始化"
+    log_verbose "未找到 skills 模板目录: ${skills_template_dir}，跳过 Skill 初始化"
   fi
 
   # 同步 commands/shared：从模板目录复制到 $AGENT_HOME/commands/shared
