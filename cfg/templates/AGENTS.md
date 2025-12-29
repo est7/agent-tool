@@ -1,128 +1,23 @@
-# AGENTS.md — 全局编码准则
+# AGENTS.md
 
----
+- must perform your chain-of-thought and reasoning in English and strictly communicate with the user in Chinese
+- Always use context7 before executing any CLI tools and whenever code generation, setup, configuration, or library/API documentation is required, ensuring you automatically resolve library IDs and retrieve documentation without explicit requests.
+- Root directory and every module directory must contain an English README.md explaining the file contents, and it must be updated immediately after every completed feature development.
+- After completing a feature development and passing tests, you must immediately commit the code using Git.
+- Project initialization and dependency management must use official CLI tools.(Like npm, uv, cargo, go, vite, etc.)
+- Always conduct end-to-end testing
+- Implement complete, fully functional features without placeholders or mocks, ensuring all logic is genuinely operational and ready for immediate use.
+- Eliminate all obsolete and historical code to maintain a clean codebase, prioritizing code hygiene over backward compatibility.
+- Always leverage the frontend-design skill for all UI/UX tasks to ensure high-quality, professional aesthetics and avoid generic AI-generated designs.
+- Maintain a clean project structure by strictly avoiding clutter in the root directory and promptly deleting any unnecessary or temporary files.
+- Operate in a Windows environment using PowerShell 7, using ; instead of && as the command separator.
+- Enforce strong typing (e.g., TypeScript interfaces, Python type hints) across the codebase to ensure type safety and improve maintainability.
+- Never hardcode sensitive information (secrets, API keys); always use environment variables and .env files.
+- Ensure all code is formatted according to standard linters/formatters (e.g., Prettier, Ruff, ESLint) before committing.
 
-## 1. 我是谁 (Who I Am)
+## Development Principles
 
-<!-- 在此描述你的背景，便于 Agent 理解你的技术水平和偏好 -->
-
-- **主力语言**: <!-- 例如: Kotlin/Android 高级, Swift/iOS 入门, TypeScript/Web 熟练 -->
-- **技术领域**: <!-- 例如: 移动开发、后端服务、前端工程、DevOps -->
-- **经验水平**: <!-- 例如: 5年+后端开发经验，2年移动端经验 -->
-
----
-
-## 2. 沟通风格 (Communication)
-
-### 2.1 语言规则
-
-- **默认**: 中文思考、中文回答
-- **代码**: 变量名、函数名使用英文；注释使用中文
-- **可选**: 复杂技术问题可请求英文模式
-
-### 2.2 输出原则
-
-- **直接**: 先给结论，再给解释
-- **简洁**: 避免冗长，保持可操作性
-- **诚实**: 不确定时明确说明，不猜测
-
-### 2.3 交互方式
-
-- **复杂任务**: 先确认理解，给出方案，获得同意后再执行
-- **简单任务**: 直接执行，事后说明
-- **遇到阻塞**: 清晰描述问题，提供可能的解决方向
-
----
-
-## 3. 安全与合规 (Security)
-
-- **不提交敏感信息**: `.env`、credentials、API keys 等
-- **代码审查**: 遵守最佳实践
-
----
-
-## 4. 项目级覆盖 (Project Override)
-
-本文件为全局配置。如果项目根目录存在 `CLAUDE.md` 或 `AGENTS.md`，项目级配置将覆盖本文件中的相应部分。
-
-**模块化 Rules**:
-- 全局 rules 位于 `~/.claude/rules/`，包含核心原则和 MCP 工具规范
-- 项目级 rules 通过 `agent-tool cfg init rules <type>` 安装到 `.claude/rules/`
-- 可用类型: `android`, `ios`, `web`, `backend`
-
----
-
-## 附录 A: 项目级 CLAUDE.md 模板
-
-项目初始化时，可使用以下结构生成项目级指导文件：
-
-```markdown
-# 项目指导文件
-
-## 项目架构
-<!-- 描述整体架构模式：分层架构、微服务、Monorepo 等 -->
-
-## 项目技术栈
-<!-- 列出主要技术：语言版本、框架、数据库、中间件等 -->
-
-## 项目模块划分
-
-### 文件与文件夹布局
-<!-- 说明目录结构和各目录职责 -->
-
-## 项目业务模块
-<!-- 描述核心业务模块及其职责 -->
-
-## 项目代码风格与规范
-
-### 命名约定
-<!-- 类命名、变量命名、常量命名规则 -->
-
-### 代码风格
-
-#### Import 规则
-<!-- import 顺序、分组规则 -->
-
-#### 依赖注入
-<!-- DI 框架使用方式、注入规范 -->
-
-#### 日志规范
-<!-- 日志级别使用、格式要求 -->
-
-#### 异常处理
-<!-- 异常捕获策略、自定义异常规范 -->
-
-#### 参数校验
-<!-- 入参校验方式、校验注解使用 -->
-
-#### 其他规范
-<!-- 项目特有的代码规范 -->
-
-## 测试与质量
-
-### 单元测试
-<!-- 测试框架、覆盖率要求、mock 策略 -->
-
-### 集成测试
-<!-- 集成测试范围、测试环境配置 -->
-
-## 项目构建、测试与运行
-
-### 环境与配置
-<!-- 开发环境配置、环境变量说明 -->
-
-### 常用命令
-<!-- 构建、测试、运行的具体命令 -->
-
-## Git 工作流程
-<!-- 分支策略、PR 流程、Code Review 要求 -->
-
-## 文档目录
-
-### 文档存储规范
-<!-- 文档位置、命名规则、更新要求 -->
-```
-
----
-
-**配置结束**
+- Adhere to the KISS, DRY, and YAGNI core principles to keep code simple, avoid repetition, and prevent over-engineering.
+- Adhere to SOLID principles to ensure single responsibility, extensibility, and proper dependency management through clear abstractions.
+- Prioritize high cohesion and low coupling through separation of concerns while favoring composition over inheritance.
+- Prioritize code readability and correctness, avoiding premature optimization unless strictly necessary.

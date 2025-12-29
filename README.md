@@ -36,6 +36,17 @@
   检查当前仓库针对平台的构建环境，或对 CLI 自身做自检。  
   仅输入 `./agent-tool.sh doctor` 或加 `-h/--help` 会输出 doctor 子命令帮助。
 
+## gitx（worktree + submodule）
+
+本仓库额外提供 `./gitx.sh`，用于配合 AI-first IDE 的 worktree 并行开发，主要解决：
+- worktree 场景下子模块初始化 + 分支联动（保证子模块可提交）
+- worktree 含子模块导致的 remove 失败（提供 `--force-submodules` 一键清理）
+
+常用示例：
+- IDE 创建 worktree 后：`./gitx.sh worktree init .`
+- 全托管创建：`./gitx.sh worktree add -b <branch> <path> [<start-point>]`
+- 强制删除：`./gitx.sh worktree remove --force-submodules -y <path>`
+
 参数约定:
 
 - `<type>`: `feat | bugfix | refactor | chore | exp`
