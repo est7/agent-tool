@@ -38,16 +38,20 @@
 
 ## worktree（子模块 + IDE）
 
-本仓库额外提供两个脚本，配合 AI-first IDE 的 worktree 并行开发：
+本仓库额外提供两套脚本，配合 AI-first IDE 的 worktree 并行开发：
 
-- `./worktree/wtide.sh`：IDE 已创建 worktree 后的“后置初始化/标准化”（子模块可提交、可安全删除）
+- `./worktree/wtide.sh`：CLI 核心（init/status/remove）
+- `./worktree/wtidex.sh`：增强入口（默认直通 `wtide.sh`；加 `-i` 才进入 gum TUI）
+- `./worktree/wt`：单文件合并版（包含 `wtide.sh` + `wtidex.sh` 完整能力，便于只传一个文件给同事）
 - `./worktree/wt.sh`：全托管 worktree 工作流（add/remove/list/status/commit-push/merge）
 
 常用示例：
-- IDE 创建 worktree 后：`./worktree/wtide.sh init .`
-- IDE 删除 worktree（含 submodules）：`./worktree/wtide.sh remove --force-submodules -y <path>`
+- IDE 创建 worktree 后（CLI）：`./worktree/wtide.sh init .`（或用单文件版：`./worktree/wt init .`）
+- IDE 删除 worktree（含 submodules）：`./worktree/wtide.sh remove --force-submodules -y <path>`（或 `./worktree/wt remove ...`）
+- TUI：`./worktree/wtidex.sh -i`（或 `./worktree/wt -i`）
 - 全托管创建：`./worktree/wt.sh worktree add -b <branch> <path> [<start-point>]`
 - 全托管强制删除：`./worktree/wt.sh worktree remove --force-submodules -y <path>`
+
 
 参数约定:
 
