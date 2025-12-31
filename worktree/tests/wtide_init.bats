@@ -57,7 +57,7 @@ create_parent_repo_with_submodule() {
 
   git -C "${parent}" worktree add -q -b "wt/test" "${wt}" main
 
-  run "${BATS_TEST_DIRNAME}/../worktree/wtide.sh" init "${wt}" --no-fetch --no-pull
+  run "${BATS_TEST_DIRNAME}/../wtide.sh" init "${wt}" --no-fetch --no-pull
   [ "$status" -eq 0 ]
 
   run git -C "${wt}/libs/sub" rev-parse --abbrev-ref HEAD
@@ -75,10 +75,11 @@ create_parent_repo_with_submodule() {
 
   git -C "${parent}" worktree add -q -b "wt/test" "${wt}" main
 
-  run "${BATS_TEST_DIRNAME}/../worktree/wtide.sh" init "${wt}" --no-fetch --no-pull
+  run "${BATS_TEST_DIRNAME}/../wtide.sh" init "${wt}" --no-fetch --no-pull
   [ "$status" -eq 0 ]
 
   run git -C "${wt}/libs/sub" rev-parse --abbrev-ref HEAD
   [ "$status" -eq 0 ]
   [ "$output" = "wt/test" ]
 }
+

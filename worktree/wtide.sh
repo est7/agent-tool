@@ -10,8 +10,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
-# shellcheck source=/dev/null
-source "${SCRIPT_DIR}/../cfg/index.sh" 2>/dev/null || true
+CFG_INDEX_SH="${SCRIPT_DIR}/../cfg/index.sh"
+if [[ -f "${CFG_INDEX_SH}" ]]; then
+  # shellcheck source=/dev/null
+  source "${CFG_INDEX_SH}" 2>/dev/null || true
+fi
 
 if ! declare -F agent_error >/dev/null 2>&1; then
   agent_error() {
@@ -47,7 +50,6 @@ resolve_exe() {
 # IDE/GUI 环境中 PATH 可能不完整：优先尝试常见安装位置，再回退到 command 查找。
 GIT_EXE="$(resolve_exe "${WT_GIT_EXE:-}" "${GIT_EXE:-}" "/opt/homebrew/bin/git" "/usr/local/bin/git" "/usr/bin/git" "git" || true)"
 GUM_EXE="$(resolve_exe "${WT_GUM_EXE:-}" "${GUM_EXE:-}" "/opt/homebrew/bin/gum" "/usr/local/bin/gum" "gum" || true)"
-MISE_EXE="$(resolve_exe "${WT_MISE_EXE:-}" "${MISE_EXE:-}" "/opt/homebrew/bin/mise" "/usr/local/bin/mise" "mise" || true)"
 
 git_exec() {
   "${GIT_EXE}" "$@"
@@ -73,16 +75,6 @@ confirm_action() {
   esac
 }
 
-mise_trust_dir() {
-  local target="${1:-.}"
-  [[ "${WT_MISE_TRUST:-1}" == "1" ]] || return 0
-  [[ -n "${MISE_EXE}" ]] || return 0
-  local abs=""
-  abs="$(realpath_safe "${target}")"
-  [[ -z "${abs}" ]] && abs="${target}"
-  "${MISE_EXE}" trust "${abs}" >/dev/null 2>&1 || true
-}
-
 if [[ -t 1 ]]; then
   readonly C_RED='\033[0;31m'
   readonly C_GREEN='\033[0;32m'
@@ -103,11 +95,6 @@ die() {
   shift || true
   agent_error "${code}" "$*"
   exit 1
-}
-
-require_cmd() {
-  local cmd="$1"
-  command -v "${cmd}" >/dev/null 2>&1 || die "E_WTIDE_CMD_MISSING" "未找到命令: ${cmd}"
 }
 
 strip_trailing_slash() {
@@ -136,11 +123,23 @@ git_repo_root() {
   git_exec -C "${repo_path}" rev-parse --show-toplevel 2>/dev/null || return 1
 }
 
+git_git_dir_abs() {
+  local repo_path="${1:-.}"
+  local root git_dir rel
+  root="$(git_repo_root "${repo_path}")" || return 1
+  git_dir="$(git_exec -C "${repo_path}" rev-parse --git-dir 2>/dev/null)" || return 1
+  if [[ "${git_dir}" == /* ]]; then
+    echo "${git_dir}"
+    return 0
+  fi
+  rel="${root}/${git_dir}"
+  echo "$(realpath_safe "${rel}")"
+}
+
 git_common_dir_abs() {
   local repo_path="${1:-.}"
   local root common rel
   root="$(git_repo_root "${repo_path}")" || return 1
-  # git rev-parse --git-common-dir 会返回主仓库共享的 .git 目录路径（worktree 间共用）。
   common="$(git_exec -C "${repo_path}" rev-parse --git-common-dir 2>/dev/null)" || return 1
   if [[ "${common}" == /* ]]; then
     echo "${common}"
@@ -148,6 +147,14 @@ git_common_dir_abs() {
   fi
   rel="${root}/${common}"
   echo "$(realpath_safe "${rel}")"
+}
+
+is_main_worktree() {
+  local repo_path="${1:-.}"
+  local git_dir_abs common_dir_abs
+  git_dir_abs="$(git_git_dir_abs "${repo_path}")" || return 1
+  common_dir_abs="$(git_common_dir_abs "${repo_path}")" || return 1
+  [[ -n "${git_dir_abs}" && -n "${common_dir_abs}" && "${git_dir_abs}" == "${common_dir_abs}" ]]
 }
 
 git_current_branch() {
@@ -249,7 +256,7 @@ pick_branch_containing_head() {
     fi
   done
 
-  echo "$(echo "${branches}" | head -n 1 | sed 's/^'"${remote//\//\\/}"'\\///')"
+  echo "$(echo "${branches}" | head -n 1 | sed 's/^'"${remote//\//\\/}"'\///')"
 }
 
 standardize_one_submodule() {
@@ -259,6 +266,7 @@ standardize_one_submodule() {
   local remote="$4"
   local fetch="$5"
   local pull="$6"
+  local branch_mode="${7:-${WT_SUBMODULE_BRANCH_MODE:-${WTIDE_SUBMODULE_BRANCH_MODE:-parent}}}"
 
   local sm_abs="${wt_path}/${sm_path}"
   if ! is_submodule_initialized "${wt_path}" "${sm_path}"; then
@@ -276,19 +284,33 @@ standardize_one_submodule() {
   local current_branch desired_branch configured_branch
   current_branch="$(git_exec -C "${sm_abs}" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "HEAD")"
 
-  if git_ref_exists "${sm_abs}" "refs/heads/${parent_branch}" || git_ref_exists "${sm_abs}" "refs/remotes/${remote}/${parent_branch}"; then
-    desired_branch="${parent_branch}"
-  else
-    configured_branch="$(submodule_config_branch_from_gitmodules "${wt_path}" "${sm_path}")"
-    if [[ -n "${configured_branch}" ]] && (git_ref_exists "${sm_abs}" "refs/heads/${configured_branch}" || git_ref_exists "${sm_abs}" "refs/remotes/${remote}/${configured_branch}"); then
-      desired_branch="${configured_branch}"
-    elif [[ "${current_branch}" != "HEAD" ]]; then
-      desired_branch="${current_branch}"
-    else
-      desired_branch="$(pick_branch_containing_head "${sm_abs}" "${remote}")"
-      [[ -z "${desired_branch}" ]] && desired_branch="${parent_branch}"
-    fi
-  fi
+  configured_branch="$(submodule_config_branch_from_gitmodules "${wt_path}" "${sm_path}")"
+
+  case "${branch_mode}" in
+    parent)
+      # 强制跟随父仓分支：即使子模块里还没有同名分支，也会后续创建本地分支。
+      desired_branch="${parent_branch}"
+      ;;
+    gitmodules)
+      # 兼容旧行为：父仓同名分支存在时跟随父仓，否则优先用 .gitmodules.branch，再退回当前/包含 HEAD 的远端分支。
+      if git_ref_exists "${sm_abs}" "refs/heads/${parent_branch}" || git_ref_exists "${sm_abs}" "refs/remotes/${remote}/${parent_branch}"; then
+        desired_branch="${parent_branch}"
+      else
+        if [[ -n "${configured_branch}" ]] && (git_ref_exists "${sm_abs}" "refs/heads/${configured_branch}" || git_ref_exists "${sm_abs}" "refs/remotes/${remote}/${configured_branch}"); then
+          desired_branch="${configured_branch}"
+        elif [[ "${current_branch}" != "HEAD" ]]; then
+          desired_branch="${current_branch}"
+        else
+          desired_branch="$(pick_branch_containing_head "${sm_abs}" "${remote}")"
+          [[ -z "${desired_branch}" ]] && desired_branch="${parent_branch}"
+        fi
+      fi
+      ;;
+    *)
+      echo "FAIL:${sm_path} (未知 branch_mode: ${branch_mode})"
+      return 0
+      ;;
+  esac
 
   if [[ -z "${desired_branch}" ]]; then
     echo "SKIP:${sm_path} (无法确定目标分支)"
@@ -296,7 +318,7 @@ standardize_one_submodule() {
   fi
 
   if [[ "${current_branch}" == "${desired_branch}" ]]; then
-    : # 已在目标分支
+    :
   else
     if git_ref_exists "${sm_abs}" "refs/heads/${desired_branch}"; then
       git_exec -C "${sm_abs}" checkout "${desired_branch}" >/dev/null 2>&1 || {
@@ -336,7 +358,8 @@ cmd_init() {
   local fetch="1"
   local pull="1"
   local remote="${REMOTE_DEFAULT}"
-  local mise_trust="1"
+  local allow_main="${WTIDE_ALLOW_MAIN:-0}"
+  local branch_mode="${WT_SUBMODULE_BRANCH_MODE:-${WTIDE_SUBMODULE_BRANCH_MODE:-parent}}"
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -358,23 +381,27 @@ cmd_init() {
         [[ -z "${remote}" ]] && die "E_WTIDE_ARG_MISSING" "--remote 需要参数"
         shift 2
         ;;
-      --no-mise-trust)
-        mise_trust="0"
+      --allow-main)
+        allow_main="1"
         shift
+        ;;
+      --branch-mode)
+        branch_mode="${2:-}"
+        [[ -z "${branch_mode}" ]] && die "E_WTIDE_ARG_MISSING" "--branch-mode 需要参数"
+        shift 2
         ;;
       -h|--help)
         cat <<'EOF'
 用法:
-  wtide.sh init [<worktree_path>] [--jobs N] [--no-fetch] [--no-pull] [--remote origin] [--no-mise-trust]
+  wtide.sh init [<worktree_path>] [--jobs N] [--no-fetch] [--no-pull] [--remote origin] [--allow-main] [--branch-mode parent|gitmodules]
 
 说明:
   在现有 worktree 内初始化子模块，并将子模块切到合适分支（可提交）。
-  若安装了 mise，默认会执行一次 `mise trust <worktree_path>`（可用 --no-mise-trust 关闭）。
-  分支选择规则（单个子模块）：
-  1) 若存在与父仓同名分支：切到该分支
-  2) 否则若 .gitmodules 配置了 branch：切到该 branch
-  3) 否则若子模块当前已在某分支：保持该分支
-  4) 否则（detached）：找包含 HEAD 的远端分支；再不行就创建父分支同名本地分支
+  默认只在「linked worktree」中执行；若目标路径是主工作区（git-dir == git-common-dir），将跳过执行。
+  如需在主工作区也执行，可加 --allow-main 或设置 WTIDE_ALLOW_MAIN=1。
+  分支模式（branch-mode，默认 parent；可用 WT_SUBMODULE_BRANCH_MODE/WTIDE_SUBMODULE_BRANCH_MODE 覆盖）：
+  - parent：强制子模块 checkout/创建父仓同名分支（适合 feature 分支/改名场景）
+  - gitmodules：兼容旧行为（父分支不存在时优先 .gitmodules.branch）
 EOF
         return 0
         ;;
@@ -395,15 +422,22 @@ EOF
     die "E_WTIDE_NOT_GIT_REPO" "目录不是 Git 仓库: ${wt_path}"
   fi
 
+  if [[ "${allow_main}" != "1" ]] && is_main_worktree "${wt_path}"; then
+    log_warn "检测到主工作区（非 linked worktree），跳过 init: ${wt_path}"
+    log_warn "如需强制执行：wtide.sh init ${wt_path} --allow-main"
+    return 0
+  fi
+
   local parent_branch
   parent_branch="$(git_current_branch "${wt_path}")" || die "E_WTIDE_GIT_FAILED" "无法获取父仓分支"
   [[ "${parent_branch}" == "HEAD" ]] && die "E_WTIDE_BRANCH_DETACHED" "父仓 detached HEAD，先 checkout 到分支再执行"
 
-  if [[ "${mise_trust}" == "1" ]]; then
-    mise_trust_dir "${wt_path}"
-  fi
-
   log_info "父仓分支: ${parent_branch}"
+
+  case "${branch_mode}" in
+    parent|gitmodules) : ;;
+    *) die "E_WTIDE_ARG_INVALID" "无效 --branch-mode: ${branch_mode}（可选: parent|gitmodules）" ;;
+  esac
 
   local submodules
   submodules="$(get_submodule_paths_configured "${wt_path}")"
@@ -437,13 +471,13 @@ EOF
 
   log_info "标准化子模块分支（remote=${remote}, fetch=${fetch}, pull=${pull})..."
   local sm_all
-  sm_all="$(git_exec -C "${wt_path}" submodule foreach --recursive 'echo "$sm_path"' 2>/dev/null || true)"
+  sm_all="$(git_exec -C "${wt_path}" submodule foreach --recursive 'echo "$displaypath"' 2>/dev/null || true)"
   [[ -z "${sm_all}" ]] && sm_all="${submodules}"
 
   while IFS= read -r sm_path; do
     [[ -z "${sm_path}" ]] && continue
     local result
-    result="$(standardize_one_submodule "${wt_path}" "${sm_path}" "${parent_branch}" "${remote}" "${fetch}" "${pull}")"
+    result="$(standardize_one_submodule "${wt_path}" "${sm_path}" "${parent_branch}" "${remote}" "${fetch}" "${pull}" "${branch_mode}")"
     case "${result}" in
       OK:*) report_ok+=("${result#OK:}") ;;
       SKIP:*) report_skip+=("${result#SKIP:}") ;;
@@ -454,7 +488,7 @@ EOF
 
   echo
   echo "═══════════════════════════════════════════════════════════════"
-  echo "                        wtide 执行报告"
+  echo "                       wtide 执行报告"
   echo "═══════════════════════════════════════════════════════════════"
   if [[ ${#report_ok[@]} -gt 0 ]]; then
     echo -e "\n${C_GREEN}✓ 成功 (${#report_ok[@]})${C_RESET}"
@@ -494,7 +528,7 @@ cmd_status() {
   parent_branch="$(git_current_branch "${wt_path}")" || parent_branch="?"
 
   echo "═══════════════════════════════════════════════════════════════"
-  echo "                         wtide 状态"
+  echo "                        wtide 状态"
   echo "═══════════════════════════════════════════════════════════════"
   echo "父仓: ${repo_root}"
   echo "分支: ${parent_branch}"
@@ -502,7 +536,7 @@ cmd_status() {
   git_exec -C "${wt_path}" status --short | head -20 || true
 
   local submodules
-  submodules="$(git_exec -C "${wt_path}" submodule foreach --recursive 'echo "$sm_path"' 2>/dev/null || true)"
+  submodules="$(git_exec -C "${wt_path}" submodule foreach --recursive 'echo "$displaypath"' 2>/dev/null || true)"
   [[ -z "${submodules}" ]] && submodules="$(get_submodule_paths_configured "${wt_path}")"
 
   if [[ -n "${submodules}" ]]; then
@@ -598,7 +632,6 @@ cmd_remove() {
   - 若遇到 "containing submodules cannot be moved or removed":
     1) 尝试在该 worktree 中执行: git submodule deinit -f --all
     2) 仍失败时，可用 --force-submodules 强制清理（rm -rf worktree + 删除 worktrees 元数据 + prune）
-  - 若安装了 gum，会使用 gum confirm 做交互确认；否则回退到 [y/N] 输入。
 EOF
         return 0
         ;;
@@ -640,10 +673,25 @@ EOF
     fi
   fi
 
+  local current_abs=""
+  current_abs="$(realpath_safe ".")"
+  if [[ -z "${current_abs}" ]]; then
+    current_abs="$(pwd -P 2>/dev/null || true)"
+  fi
+
+  if [[ -n "${current_abs}" && -n "${wt_abs}" ]] && { [[ "${current_abs}" == "${wt_abs}" ]] || [[ "${current_abs}" == "${wt_abs}/"* ]]; }; then
+    log_warn "当前位于将被删除的 worktree 内：${current_abs}"
+    log_warn "将切换到主仓库执行删除：${repo_root}"
+    cd "${repo_root}" || true
+  fi
+
   log_info "删除 worktree: ${wt_path}"
   local remove_out=""
   if remove_out="$(git_exec -C "${repo_root}" worktree remove --force "${wt_abs}" 2>&1)"; then
     log_ok "worktree 已删除: ${wt_path}"
+    if [[ -n "${current_abs}" && -n "${wt_abs}" ]] && { [[ "${current_abs}" == "${wt_abs}" ]] || [[ "${current_abs}" == "${wt_abs}/"* ]]; }; then
+      log_warn "提示：你的终端若仍停留在被删除目录，请手动执行：cd ${repo_root}"
+    fi
     return 0
   fi
 
@@ -662,9 +710,9 @@ EOF
 
     log_warn "使用 --force-submodules 强制清理（rm -rf + 删除元数据 + prune）..."
 
-    local gitdir common_dir
+    local gitdir common_dir2
     gitdir="$(worktree_find_gitdir "${repo_root}" "${wt_abs}")"
-    common_dir="$(git_common_dir_abs "${repo_root}")"
+    common_dir2="$(git_common_dir_abs "${repo_root}")"
 
     if [[ -n "${gitdir}" ]]; then
       local gitdir_abs="${gitdir}"
@@ -673,7 +721,7 @@ EOF
       fi
       gitdir_abs="$(realpath_safe "${gitdir_abs}")"
 
-      if [[ -n "${common_dir}" && -n "${gitdir_abs}" && "${gitdir_abs}" == "${common_dir}/worktrees/"* ]]; then
+      if [[ -n "${common_dir2}" && -n "${gitdir_abs}" && "${gitdir_abs}" == "${common_dir2}/worktrees/"* ]]; then
         safe_rm_rf "${gitdir_abs}"
       else
         log_warn "gitdir 路径不在 common_dir 下，拒绝删除: ${gitdir_abs}"
@@ -696,7 +744,7 @@ EOF
 
 show_help() {
   cat <<'EOF'
-wtide.sh - AI IDE worktree helper
+wtide.sh - AI IDE worktree helper（CLI）
 
 用法:
   wtide.sh <command> [args...]
@@ -709,8 +757,9 @@ wtide.sh - AI IDE worktree helper
 环境变量:
   WT_GIT_EXE=/abs/path/to/git     git 绝对路径（IDE PATH 不完整时可用）
   WT_GUM_EXE=/abs/path/to/gum     gum 绝对路径（可选）
-  WT_MISE_EXE=/abs/path/to/mise   mise 绝对路径（可选）
-  WT_MISE_TRUST=0                禁用 init 时的 mise trust（默认开启）
+  WTIDE_ALLOW_MAIN=1             允许在主工作区执行 init（默认跳过）
+  WT_SUBMODULE_BRANCH_MODE=parent|gitmodules   子模块分支模式（默认 parent）
+  WTIDE_SUBMODULE_BRANCH_MODE=parent|gitmodules   同上（脚本专用覆盖）
 
 示例:
   wtide.sh init .

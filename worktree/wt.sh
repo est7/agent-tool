@@ -10,8 +10,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
-# shellcheck source=/dev/null
-source "${SCRIPT_DIR}/../cfg/index.sh" 2>/dev/null || true
+CFG_INDEX_SH="${SCRIPT_DIR}/../cfg/index.sh"
+if [[ -f "${CFG_INDEX_SH}" ]]; then
+  # shellcheck source=/dev/null
+  source "${CFG_INDEX_SH}" 2>/dev/null || true
+fi
 
 if ! declare -F agent_error >/dev/null 2>&1; then
   agent_error() {

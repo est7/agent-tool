@@ -2,7 +2,9 @@
 
 本仓库提供两套**完全独立**的脚本：
 
-- `worktree/wtide.sh`：IDE 已创建 worktree 后的“后置初始化/标准化”（子模块可提交、可安全删除）
+- `worktree/wtide.sh`：CLI 核心（init/status/remove）
+- `worktree/wtidex.sh`：增强入口（默认直通 `wtide.sh`；加 `-i` 才进入 gum TUI）
+- `worktree/wt`：单文件合并版（包含 `wtide.sh` + `wtidex.sh` 完整能力，便于只传一个文件给同事）
 - `worktree/wt.sh`：全托管 worktree 工作流（创建/删除/提交/合并等）
 
 建议用一个环境变量记录脚本位置，避免每次输入绝对路径：
@@ -15,6 +17,8 @@ export AGENT_TOOL_HOME="<path-to-agent-tool>"
 
 ```bash
 ./worktree/wtide.sh init .
+./worktree/wtidex.sh -i
+./worktree/wt init .
 ./worktree/wt.sh worktree list
 ```
 
@@ -154,5 +158,5 @@ fatal: working trees containing submodules cannot be moved or removed
 
 ## 4) 常见建议（避免坑）
 
-- worktree 创建后第一步就跑一次 `wtide.sh init .`（或 `wt.sh worktree init <path>`），避免子模块停在 detached 导致后续无法提交。
+- worktree 创建后第一步就跑一次 `wtide.sh init .`（或单文件 `wt init .` / `wt.sh worktree init <path>`），避免子模块停在 detached 导致后续无法提交。
 - `--force-submodules` 属于“安全但破坏性”的最终手段：它会删除 worktree 目录并清理 worktree 元数据；确认路径正确再用。
