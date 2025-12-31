@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# gitx.sh
+# wt.sh
 #
-# 面向 AI-first IDE 的 Git worktree + submodule 工作流封装。
-# 目标：
-# - IDE 已创建 worktree：一键 init 子模块，并将子模块切到合适分支（可提交）
-# - 全托管：封装 worktree add/remove/list/status/commit-push/merge，但接口尽量贴近原生 git
+# 全托管 worktree + submodule 工作流（尽量贴近原生 git 的命令语义）：
+# - worktree add/remove/list/status/init
+# - commit-push：先子模块后父仓
+# - merge：先子模块后父仓
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 # shellcheck source=/dev/null
-source "${SCRIPT_DIR}/cfg/index.sh" 2>/dev/null || true
+source "${SCRIPT_DIR}/../cfg/index.sh" 2>/dev/null || true
 
 if ! declare -F agent_error >/dev/null 2>&1; then
   agent_error() {
-    local code="${1:-E_GITX_INTERNAL}"
+    local code="${1:-E_WT_INTERNAL}"
     shift || true
     if [[ $# -gt 0 ]]; then
       echo "${code}: $*" >&2
@@ -26,7 +26,7 @@ if ! declare -F agent_error >/dev/null 2>&1; then
 fi
 
 VERBOSE="${VERBOSE:-0}"
-REMOTE_DEFAULT="${GITX_REMOTE:-origin}"
+REMOTE_DEFAULT="${WT_REMOTE:-origin}"
 
 if [[ -t 1 ]]; then
   readonly C_RED='\033[0;31m'
@@ -52,7 +52,7 @@ die() {
 
 require_cmd() {
   local cmd="$1"
-  command -v "${cmd}" >/dev/null 2>&1 || die "E_GITX_CMD_MISSING" "未找到命令: ${cmd}"
+  command -v "${cmd}" >/dev/null 2>&1 || die "E_WT_CMD_MISSING" "未找到命令: ${cmd}"
 }
 
 strip_trailing_slash() {
@@ -100,7 +100,7 @@ git_current_branch() {
 }
 
 detect_jobs() {
-  local jobs="${SUBMODULE_JOBS:-${GITX_JOBS:-}}"
+  local jobs="${SUBMODULE_JOBS:-${WT_JOBS:-}}"
   if [[ -n "${jobs}" ]]; then
     echo "${jobs}"
     return 0
@@ -273,7 +273,7 @@ standardize_one_submodule() {
   echo "OK:${sm_path} → ${desired_branch}"
 }
 
-cmd_worktree_init() {
+cmd_init() {
   local wt_path="."
   local jobs
   jobs="$(detect_jobs)"
@@ -285,19 +285,11 @@ cmd_worktree_init() {
     case "$1" in
       --jobs)
         jobs="${2:-}"
-        [[ -z "${jobs}" ]] && die "E_GITX_ARG_MISSING" "--jobs 需要参数"
+        [[ -z "${jobs}" ]] && die "E_WT_ARG_MISSING" "--jobs 需要参数"
         shift 2
-        ;;
-      --fetch)
-        fetch="1"
-        shift
         ;;
       --no-fetch)
         fetch="0"
-        shift
-        ;;
-      --pull)
-        pull="1"
         shift
         ;;
       --no-pull)
@@ -306,26 +298,18 @@ cmd_worktree_init() {
         ;;
       --remote)
         remote="${2:-}"
-        [[ -z "${remote}" ]] && die "E_GITX_ARG_MISSING" "--remote 需要参数"
+        [[ -z "${remote}" ]] && die "E_WT_ARG_MISSING" "--remote 需要参数"
         shift 2
         ;;
       -h|--help)
         cat <<'EOF'
 用法:
-  gitx.sh worktree init [<worktree_path>] [--jobs N] [--no-fetch] [--no-pull] [--remote origin]
-
-说明:
-  在现有 worktree 内初始化子模块，并将子模块切到合适分支（可提交）。
-  分支选择规则（单个子模块）：
-  1) 若存在与父仓同名分支：切到该分支
-  2) 否则若 .gitmodules 配置了 branch：切到该 branch
-  3) 否则若子模块当前已在某分支：保持该分支
-  4) 否则（detached）：尝试找包含当前 commit 的远端分支；再不行就创建父分支同名的本地分支
+  wt.sh worktree init [<worktree_path>] [--jobs N] [--no-fetch] [--no-pull] [--remote origin]
 EOF
         return 0
         ;;
       -*)
-        die "E_GITX_ARG_INVALID" "未知选项: $1"
+        die "E_WT_ARG_INVALID" "未知选项: $1"
         ;;
       *)
         wt_path="$1"
@@ -338,14 +322,12 @@ EOF
   require_cmd git
 
   if ! git -C "${wt_path}" rev-parse --git-dir >/dev/null 2>&1; then
-    die "E_GITX_NOT_GIT_REPO" "目录不是 Git 仓库: ${wt_path}"
+    die "E_WT_NOT_GIT_REPO" "目录不是 Git 仓库: ${wt_path}"
   fi
 
   local parent_branch
-  parent_branch="$(git_current_branch "${wt_path}")" || die "E_GITX_GIT_FAILED" "无法获取父仓分支"
-  if [[ "${parent_branch}" == "HEAD" ]]; then
-    die "E_GITX_BRANCH_DETACHED" "父仓处于 detached HEAD，先 checkout 到一个分支再执行"
-  fi
+  parent_branch="$(git_current_branch "${wt_path}")" || die "E_WT_GIT_FAILED" "无法获取父仓分支"
+  [[ "${parent_branch}" == "HEAD" ]] && die "E_WT_BRANCH_DETACHED" "父仓 detached HEAD，先 checkout 到分支再执行"
 
   log_info "父仓分支: ${parent_branch}"
 
@@ -356,18 +338,17 @@ EOF
     return 0
   fi
 
-  log_info "初始化/更新子模块（失败不阻塞）..."
-  git -C "${wt_path}" submodule init >/dev/null 2>&1 || true
-
   local report_ok=()
   local report_skip=()
   local report_fail_auth=()
   local report_fail_notfound=()
   local report_fail_other=()
 
+  log_info "初始化/更新子模块（失败不阻塞）..."
+  git -C "${wt_path}" submodule init >/dev/null 2>&1 || true
+
   while IFS= read -r sm_path; do
     [[ -z "${sm_path}" ]] && continue
-
     local output
     if output="$(git -C "${wt_path}" -c submodule.alternateErrorStrategy=info submodule update --init --recursive --jobs "${jobs}" -- "${sm_path}" 2>&1)"; then
       report_ok+=("update: ${sm_path}")
@@ -380,12 +361,10 @@ EOF
     fi
   done <<< "${submodules}"
 
-  log_info "标准化子模块分支（fetch=${fetch}, pull=${pull}, remote=${remote})..."
+  log_info "标准化子模块分支（remote=${remote}, fetch=${fetch}, pull=${pull})..."
   local sm_all
   sm_all="$(git -C "${wt_path}" submodule foreach --recursive 'echo "$sm_path"' 2>/dev/null || true)"
-  if [[ -z "${sm_all}" ]]; then
-    sm_all="${submodules}"
-  fi
+  [[ -z "${sm_all}" ]] && sm_all="${submodules}"
 
   while IFS= read -r sm_path; do
     [[ -z "${sm_path}" ]] && continue
@@ -401,7 +380,7 @@ EOF
 
   echo
   echo "═══════════════════════════════════════════════════════════════"
-  echo "                         gitx 执行报告"
+  echo "                         wt 执行报告"
   echo "═══════════════════════════════════════════════════════════════"
   if [[ ${#report_ok[@]} -gt 0 ]]; then
     echo -e "\n${C_GREEN}✓ 成功 (${#report_ok[@]})${C_RESET}"
@@ -424,26 +403,20 @@ EOF
     printf '  %s\n' "${report_fail_other[@]}"
   fi
   echo "═══════════════════════════════════════════════════════════════"
-
-  log_ok "完成：worktree 已可提交（父分支: ${parent_branch}）"
 }
 
-cmd_worktree_list() {
+cmd_list() {
   require_cmd git
   local repo_root
-  repo_root="$(git_repo_root ".")" || die "E_GITX_NOT_GIT_REPO" "当前目录不在 Git 仓库中"
+  repo_root="$(git_repo_root ".")" || die "E_WT_NOT_GIT_REPO" "当前目录不在 Git 仓库中"
   git -C "${repo_root}" worktree list
 }
 
-cmd_worktree_status() {
+cmd_status() {
   require_cmd git
-  local wt_path="."
-  if [[ $# -gt 0 ]]; then
-    wt_path="$1"
-  fi
-
+  local wt_path="${1:-.}"
   if ! git -C "${wt_path}" rev-parse --git-dir >/dev/null 2>&1; then
-    die "E_GITX_NOT_GIT_REPO" "目录不是 Git 仓库: ${wt_path}"
+    die "E_WT_NOT_GIT_REPO" "目录不是 Git 仓库: ${wt_path}"
   fi
 
   local repo_root parent_branch
@@ -451,7 +424,7 @@ cmd_worktree_status() {
   parent_branch="$(git_current_branch "${wt_path}")" || parent_branch="?"
 
   echo "═══════════════════════════════════════════════════════════════"
-  echo "                         gitx 状态"
+  echo "                          wt 状态"
   echo "═══════════════════════════════════════════════════════════════"
   echo "父仓: ${repo_root}"
   echo "分支: ${parent_branch}"
@@ -460,9 +433,7 @@ cmd_worktree_status() {
 
   local submodules
   submodules="$(git -C "${wt_path}" submodule foreach --recursive 'echo "$sm_path"' 2>/dev/null || true)"
-  if [[ -z "${submodules}" ]]; then
-    submodules="$(get_submodule_paths_configured "${wt_path}")"
-  fi
+  [[ -z "${submodules}" ]] && submodules="$(get_submodule_paths_configured "${wt_path}")"
 
   if [[ -n "${submodules}" ]]; then
     echo
@@ -488,7 +459,7 @@ cmd_worktree_status() {
   echo "═══════════════════════════════════════════════════════════════"
 }
 
-cmd_worktree_add() {
+cmd_add() {
   require_cmd git
 
   local new_branch=""
@@ -506,20 +477,16 @@ cmd_worktree_add() {
     case "$1" in
       -b|--branch)
         new_branch="${2:-}"
-        [[ -z "${new_branch}" ]] && die "E_GITX_ARG_MISSING" "-b/--branch 需要参数"
+        [[ -z "${new_branch}" ]] && die "E_WT_ARG_MISSING" "-b/--branch 需要参数"
         shift 2
         ;;
       --no-init)
         init="0"
         shift
         ;;
-      --init)
-        init="1"
-        shift
-        ;;
       --jobs)
         jobs="${2:-}"
-        [[ -z "${jobs}" ]] && die "E_GITX_ARG_MISSING" "--jobs 需要参数"
+        [[ -z "${jobs}" ]] && die "E_WT_ARG_MISSING" "--jobs 需要参数"
         shift 2
         ;;
       --no-fetch)
@@ -532,7 +499,7 @@ cmd_worktree_add() {
         ;;
       --remote)
         remote="${2:-}"
-        [[ -z "${remote}" ]] && die "E_GITX_ARG_MISSING" "--remote 需要参数"
+        [[ -z "${remote}" ]] && die "E_WT_ARG_MISSING" "--remote 需要参数"
         shift 2
         ;;
       --force)
@@ -542,16 +509,12 @@ cmd_worktree_add() {
       -h|--help)
         cat <<'EOF'
 用法（尽量贴近原生 git）:
-  gitx.sh worktree add [-b <new-branch>] <path> [<start-point>] [--no-init] [--no-fetch] [--no-pull]
-
-说明:
-  1) 内部执行: git worktree add ...
-  2) 默认会对新 worktree 执行: gitx.sh worktree init
+  wt.sh worktree add [-b <new-branch>] <path> [<start-point>] [--no-init] [--no-fetch] [--no-pull]
 EOF
         return 0
         ;;
       -*)
-        die "E_GITX_ARG_INVALID" "未知选项: $1"
+        die "E_WT_ARG_INVALID" "未知选项: $1"
         ;;
       *)
         if [[ -z "${wt_path}" ]]; then
@@ -559,17 +522,17 @@ EOF
         elif [[ -z "${start_point}" ]]; then
           start_point="$1"
         else
-          die "E_GITX_ARG_INVALID" "多余参数: $1"
+          die "E_WT_ARG_INVALID" "多余参数: $1"
         fi
         shift
         ;;
     esac
   done
 
-  [[ -z "${wt_path}" ]] && die "E_GITX_ARG_MISSING" "worktree add 需要 <path>"
+  [[ -z "${wt_path}" ]] && die "E_WT_ARG_MISSING" "worktree add 需要 <path>"
 
   local repo_root
-  repo_root="$(git_repo_root ".")" || die "E_GITX_NOT_GIT_REPO" "当前目录不在 Git 仓库中"
+  repo_root="$(git_repo_root ".")" || die "E_WT_NOT_GIT_REPO" "当前目录不在 Git 仓库中"
 
   log_info "创建 worktree: ${wt_path}"
   local cmd=(git -C "${repo_root}" worktree add)
@@ -584,22 +547,17 @@ EOF
     cmd+=("${start_point}")
   fi
   "${cmd[@]}"
-
   log_ok "worktree 已创建: ${wt_path}"
 
   if [[ "${init}" == "1" ]]; then
-    local init_args=("${wt_path}" --jobs "${jobs}" --remote "${remote}")
-    if [[ "${fetch}" == "1" ]]; then
-      init_args+=(--fetch)
-    else
-      init_args+=(--no-fetch)
+    local args=(worktree init "${wt_path}" --jobs "${jobs}" --remote "${remote}")
+    if [[ "${fetch}" == "0" ]]; then
+      args+=(--no-fetch)
     fi
-    if [[ "${pull}" == "1" ]]; then
-      init_args+=(--pull)
-    else
-      init_args+=(--no-pull)
+    if [[ "${pull}" == "0" ]]; then
+      args+=(--no-pull)
     fi
-    cmd_worktree_init "${init_args[@]}"
+    main "${args[@]}"
   fi
 }
 
@@ -612,8 +570,7 @@ worktree_find_gitdir() {
   want_path="$(strip_trailing_slash "${want_path}")"
   want_abs="$(strip_trailing_slash "${want_abs}")"
 
-  local current_path=""
-  local line
+  local current_path="" line
   while IFS= read -r line; do
     if [[ "${line}" == worktree\ * ]]; then
       current_path="${line#worktree }"
@@ -622,7 +579,7 @@ worktree_find_gitdir() {
     fi
     if [[ "${line}" == gitdir\ * ]]; then
       local gitdir="${line#gitdir }"
-      local cur_abs=""
+      local cur_abs
       cur_abs="$(realpath_safe "${current_path}")"
       cur_abs="$(strip_trailing_slash "${cur_abs}")"
 
@@ -642,12 +599,12 @@ worktree_find_gitdir() {
 
 safe_rm_rf() {
   local target="$1"
-  [[ -z "${target}" ]] && die "E_GITX_INTERNAL" "删除路径为空"
-  [[ "${target}" == "/" ]] && die "E_GITX_INTERNAL" "拒绝删除 /"
+  [[ -z "${target}" ]] && die "E_WT_INTERNAL" "删除路径为空"
+  [[ "${target}" == "/" ]] && die "E_WT_INTERNAL" "拒绝删除 /"
   rm -rf "${target}"
 }
 
-cmd_worktree_remove() {
+cmd_remove() {
   require_cmd git
   local wt_path=""
   local yes="0"
@@ -666,18 +623,12 @@ cmd_worktree_remove() {
       -h|--help)
         cat <<'EOF'
 用法:
-  gitx.sh worktree remove <worktree_path> [-y|--yes] [--force-submodules]
-
-说明:
-  - 先尝试原生: git worktree remove --force
-  - 若遇到 "containing submodules cannot be moved or removed":
-    1) 尝试在该 worktree 中执行: git submodule deinit -f --all
-    2) 仍失败时，可用 --force-submodules 强制清理（rm -rf worktree + 删除 worktrees 元数据 + prune）
+  wt.sh worktree remove <worktree_path> [-y|--yes] [--force-submodules]
 EOF
         return 0
         ;;
       -*)
-        die "E_GITX_ARG_INVALID" "未知选项: $1"
+        die "E_WT_ARG_INVALID" "未知选项: $1"
         ;;
       *)
         wt_path="$1"
@@ -686,17 +637,17 @@ EOF
     esac
   done
 
-  [[ -z "${wt_path}" ]] && die "E_GITX_ARG_MISSING" "worktree remove 需要 <worktree_path>"
+  [[ -z "${wt_path}" ]] && die "E_WT_ARG_MISSING" "worktree remove 需要 <worktree_path>"
   wt_path="$(strip_trailing_slash "${wt_path}")"
 
   local repo_root
-  repo_root="$(git_repo_root ".")" || die "E_GITX_NOT_GIT_REPO" "当前目录不在 Git 仓库中"
+  repo_root="$(git_repo_root ".")" || die "E_WT_NOT_GIT_REPO" "当前目录不在 Git 仓库中"
 
   local repo_root_abs wt_abs
   repo_root_abs="$(realpath_safe "${repo_root}")"
   wt_abs="$(realpath_safe "${wt_path}")"
   if [[ -n "${wt_abs}" && -n "${repo_root_abs}" && "${wt_abs}" == "${repo_root_abs}" ]]; then
-    die "E_GITX_ARG_INVALID" "拒绝删除当前工作区（仓库根目录）: ${wt_path}"
+    die "E_WT_ARG_INVALID" "拒绝删除当前工作区（仓库根目录）: ${wt_path}"
   fi
 
   if [[ "${yes}" != "1" ]]; then
@@ -726,7 +677,7 @@ EOF
     fi
 
     if [[ "${force_submodules}" != "1" ]]; then
-      die "E_GITX_WORKTREE_REMOVE_SUBMODULES" "worktree 含子模块导致 remove 失败；可重试: gitx.sh worktree remove --force-submodules -y ${wt_path}"
+      die "E_WT_WORKTREE_REMOVE_SUBMODULES" "worktree 含子模块导致 remove 失败；可重试: wt.sh worktree remove --force-submodules -y ${wt_path}"
     fi
 
     log_warn "使用 --force-submodules 强制清理（rm -rf + 删除元数据 + prune）..."
@@ -735,9 +686,7 @@ EOF
     gitdir="$(worktree_find_gitdir "${repo_root}" "${wt_path}")"
     common_dir="$(git_common_dir_abs "${repo_root}")"
 
-    if [[ -z "${gitdir}" ]]; then
-      log_warn "未找到 worktree 元数据 gitdir（继续尝试 prune）"
-    else
+    if [[ -n "${gitdir}" ]]; then
       local gitdir_abs="${gitdir}"
       if [[ "${gitdir_abs}" != /* ]]; then
         gitdir_abs="${repo_root}/${gitdir_abs}"
@@ -749,6 +698,8 @@ EOF
       else
         log_warn "gitdir 路径不在 common_dir 下，拒绝删除: ${gitdir_abs}"
       fi
+    else
+      log_warn "未找到 worktree 元数据 gitdir（继续尝试 prune）"
     fi
 
     if [[ -d "${wt_path}" || -f "${wt_path}" ]]; then
@@ -760,10 +711,10 @@ EOF
     return 0
   fi
 
-  die "E_GITX_WORKTREE_REMOVE_FAILED" "删除失败: ${remove_out}"
+  die "E_WT_WORKTREE_REMOVE_FAILED" "删除失败: ${remove_out}"
 }
 
-cmd_worktree_commit_push() {
+cmd_commit_push() {
   require_cmd git
   local message=""
   local wt_path="."
@@ -773,22 +724,18 @@ cmd_worktree_commit_push() {
     case "$1" in
       --path)
         wt_path="${2:-}"
-        [[ -z "${wt_path}" ]] && die "E_GITX_ARG_MISSING" "--path 需要参数"
+        [[ -z "${wt_path}" ]] && die "E_WT_ARG_MISSING" "--path 需要参数"
         shift 2
         ;;
       --remote)
         remote="${2:-}"
-        [[ -z "${remote}" ]] && die "E_GITX_ARG_MISSING" "--remote 需要参数"
+        [[ -z "${remote}" ]] && die "E_WT_ARG_MISSING" "--remote 需要参数"
         shift 2
         ;;
       -h|--help)
         cat <<'EOF'
 用法:
-  gitx.sh worktree commit-push [message] [--path <worktree_path>] [--remote origin]
-
-说明:
-  - 先子模块、后父仓：提交并 push 当前分支（若需要会用 -u 设置 upstream）
-  - 无改动会跳过
+  wt.sh worktree commit-push [message] [--path <worktree_path>] [--remote origin]
 EOF
         return 0
         ;;
@@ -797,32 +744,30 @@ EOF
         break
         ;;
       -*)
-        die "E_GITX_ARG_INVALID" "未知选项: $1"
+        die "E_WT_ARG_INVALID" "未知选项: $1"
         ;;
       *)
         if [[ -z "${message}" ]]; then
           message="$1"
           shift
         else
-          die "E_GITX_ARG_INVALID" "多余参数: $1"
+          die "E_WT_ARG_INVALID" "多余参数: $1"
         fi
         ;;
     esac
   done
 
   if ! git -C "${wt_path}" rev-parse --git-dir >/dev/null 2>&1; then
-    die "E_GITX_NOT_GIT_REPO" "目录不是 Git 仓库: ${wt_path}"
+    die "E_WT_NOT_GIT_REPO" "目录不是 Git 仓库: ${wt_path}"
   fi
 
   local parent_branch
-  parent_branch="$(git_current_branch "${wt_path}")" || die "E_GITX_GIT_FAILED" "无法获取父仓分支"
-  [[ "${parent_branch}" == "HEAD" ]] && die "E_GITX_BRANCH_DETACHED" "父仓 detached HEAD，无法 commit-push"
+  parent_branch="$(git_current_branch "${wt_path}")" || die "E_WT_GIT_FAILED" "无法获取父仓分支"
+  [[ "${parent_branch}" == "HEAD" ]] && die "E_WT_BRANCH_DETACHED" "父仓 detached HEAD，无法 commit-push"
 
   local submodules
   submodules="$(git -C "${wt_path}" submodule foreach --recursive 'echo "$sm_path"' 2>/dev/null || true)"
-  if [[ -z "${submodules}" ]]; then
-    submodules="$(get_submodule_paths_configured "${wt_path}")"
-  fi
+  [[ -z "${submodules}" ]] && submodules="$(get_submodule_paths_configured "${wt_path}")"
 
   if [[ -n "${submodules}" ]]; then
     while IFS= read -r sm_path; do
@@ -838,20 +783,14 @@ EOF
       fi
 
       sm_branch="$(git_current_branch "${sm_abs}")" || sm_branch="HEAD"
-      if [[ "${sm_branch}" == "HEAD" ]]; then
-        die "E_GITX_SUBMODULE_DETACHED" "子模块处于 detached HEAD，先执行: gitx.sh worktree init ${wt_path}"
-      fi
+      [[ "${sm_branch}" == "HEAD" ]] && die "E_WT_SUBMODULE_DETACHED" "子模块 detached HEAD，先执行: wt.sh worktree init ${wt_path}"
 
       log_info "子模块 commit-push: ${sm_path} (${sm_branch})"
       git -C "${sm_abs}" add -A
-      if git -C "${sm_abs}" diff --cached --quiet; then
-        continue
-      fi
+      git -C "${sm_abs}" diff --cached --quiet && continue
 
       git -C "${sm_abs}" commit -m "${message:-"chore: update ${sm_path}"}"
-      if ! git -C "${sm_abs}" push -u "${remote}" "${sm_branch}"; then
-        die "E_GITX_SUBMODULE_PUSH_FAILED" "子模块 push 失败: ${sm_path}"
-      fi
+      git -C "${sm_abs}" push -u "${remote}" "${sm_branch}" || die "E_WT_SUBMODULE_PUSH_FAILED" "子模块 push 失败: ${sm_path}"
     done <<< "${submodules}"
   fi
 
@@ -864,11 +803,10 @@ EOF
 
   git -C "${wt_path}" commit -m "${message:-"chore: update submodules and parent"}"
   git -C "${wt_path}" push -u "${remote}" "${parent_branch}"
-
   log_ok "commit-push 完成"
 }
 
-cmd_worktree_merge() {
+cmd_merge() {
   require_cmd git
   local feature_branch=""
   local target_branch="development"
@@ -879,18 +817,18 @@ cmd_worktree_merge() {
     case "$1" in
       --path)
         wt_path="${2:-}"
-        [[ -z "${wt_path}" ]] && die "E_GITX_ARG_MISSING" "--path 需要参数"
+        [[ -z "${wt_path}" ]] && die "E_WT_ARG_MISSING" "--path 需要参数"
         shift 2
         ;;
       --remote)
         remote="${2:-}"
-        [[ -z "${remote}" ]] && die "E_GITX_ARG_MISSING" "--remote 需要参数"
+        [[ -z "${remote}" ]] && die "E_WT_ARG_MISSING" "--remote 需要参数"
         shift 2
         ;;
       -h|--help)
         cat <<'EOF'
 用法:
-  gitx.sh worktree merge <feature_branch> [target_branch] [--path <worktree_path>] [--remote origin]
+  wt.sh worktree merge <feature_branch> [target_branch] [--path <worktree_path>] [--remote origin]
 EOF
         return 0
         ;;
@@ -899,7 +837,7 @@ EOF
         break
         ;;
       -*)
-        die "E_GITX_ARG_INVALID" "未知选项: $1"
+        die "E_WT_ARG_INVALID" "未知选项: $1"
         ;;
       *)
         if [[ -z "${feature_branch}" ]]; then
@@ -907,17 +845,14 @@ EOF
         elif [[ "${target_branch}" == "development" ]]; then
           target_branch="$1"
         else
-          die "E_GITX_ARG_INVALID" "多余参数: $1"
+          die "E_WT_ARG_INVALID" "多余参数: $1"
         fi
         shift
         ;;
     esac
   done
 
-  [[ -z "${feature_branch}" ]] && die "E_GITX_ARG_MISSING" "用法: gitx.sh worktree merge <feature_branch> [target_branch]"
-
-  local repo_root
-  repo_root="$(git_repo_root "${wt_path}")" || die "E_GITX_NOT_GIT_REPO" "目录不是 Git 仓库: ${wt_path}"
+  [[ -z "${feature_branch}" ]] && die "E_WT_ARG_MISSING" "用法: wt.sh worktree merge <feature_branch> [target_branch]"
 
   log_info "合并分支: ${feature_branch} -> ${target_branch}"
   log_info "策略: 先子模块，后父仓库"
@@ -925,13 +860,14 @@ EOF
   git -C "${wt_path}" checkout "${target_branch}"
   git -C "${wt_path}" pull --ff-only >/dev/null 2>&1 || log_warn "父仓 pull --ff-only 失败（继续执行）"
 
+  local repo_root
+  repo_root="$(git_repo_root "${wt_path}")" || die "E_WT_NOT_GIT_REPO" "目录不是 Git 仓库: ${wt_path}"
+
   local submodules
   submodules="$(git -C "${wt_path}" submodule foreach --recursive 'echo "$sm_path"' 2>/dev/null || true)"
-  if [[ -z "${submodules}" ]]; then
-    submodules="$(get_submodule_paths_configured "${wt_path}")"
-  fi
+  [[ -z "${submodules}" ]] && submodules="$(get_submodule_paths_configured "${wt_path}")"
 
-  local merged_file="${repo_root}/.gitx-merged-submodules"
+  local merged_file="${repo_root}/.wt-merged-submodules"
   rm -f "${merged_file}" 2>/dev/null || true
 
   if [[ -n "${submodules}" ]]; then
@@ -966,7 +902,7 @@ EOF
             log_ok "子模块 ${sm_path}: 合并成功"
           else
             echo "${sm_path}:CONFLICT" >> "${merged_file}"
-            die "E_GITX_MERGE_CONFLICT" "子模块 ${sm_path} 合并冲突，请手动解决后重试"
+            die "E_WT_MERGE_CONFLICT" "子模块 ${sm_path} 合并冲突，请手动解决后重试"
           fi
         fi
       )
@@ -1001,29 +937,19 @@ EOF
 
 show_help() {
   cat <<'EOF'
-gitx.sh - Git worktree + submodule workflow helper
+wt.sh - worktree + submodule workflow
 
 用法:
-  gitx.sh worktree <command> [args...]
+  wt.sh worktree <command> [args...]
 
 worktree 命令:
-  init [path]              初始化子模块并标准化分支（IDE 场景）
-  add ...                  创建 worktree，并默认执行 init
-  remove <path>            删除 worktree（支持 --force-submodules）
-  list                     列出 worktree
-  status [path]            查看父仓/子模块状态
-  commit-push [message]    先子模块后父仓 commit & push
-  merge <feature> [target] 先子模块后父仓合并并 push
-
-示例:
-  # IDE 创建 worktree 后：
-  gitx.sh worktree init .
-
-  # 全托管创建：
-  gitx.sh worktree add -b li/test/wt ../wt-li
-
-  # 强制删除（含 submodules）：
-  gitx.sh worktree remove --force-submodules -y ../wt-li
+  init [path]
+  add [-b <branch>] <path> [<start-point>]
+  remove <path> [--force-submodules]
+  list
+  status [path]
+  commit-push [message]
+  merge <feature> [target]
 EOF
 }
 
@@ -1052,22 +978,22 @@ main() {
       local cmd="${1:-}"
       shift || true
       case "${cmd}" in
-        init) cmd_worktree_init "$@" ;;
-        add) cmd_worktree_add "$@" ;;
-        remove|rm) cmd_worktree_remove "$@" ;;
-        list|ls) cmd_worktree_list ;;
-        status|st) cmd_worktree_status "$@" ;;
-        commit-push|cp) cmd_worktree_commit_push "$@" ;;
-        merge) cmd_worktree_merge "$@" ;;
+        init) cmd_init "$@" ;;
+        add) cmd_add "$@" ;;
+        remove|rm) cmd_remove "$@" ;;
+        list|ls) cmd_list ;;
+        status|st) cmd_status "$@" ;;
+        commit-push|cp) cmd_commit_push "$@" ;;
+        merge) cmd_merge "$@" ;;
         ""|help|-h|--help) show_help ;;
-        *) die "E_GITX_SUBCOMMAND_UNKNOWN" "未知 worktree 子命令: ${cmd}" ;;
+        *) die "E_WT_SUBCOMMAND_UNKNOWN" "未知 worktree 子命令: ${cmd}" ;;
       esac
       ;;
     ""|help|-h|--help)
       show_help
       ;;
     *)
-      die "E_GITX_GROUP_UNKNOWN" "未知命令组: ${group}"
+      die "E_WT_GROUP_UNKNOWN" "未知命令组: ${group}"
       ;;
   esac
 }

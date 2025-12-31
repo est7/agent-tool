@@ -47,7 +47,7 @@ create_parent_repo_with_submodule() {
   git -C "${dir}" commit -qam "add submodule"
 }
 
-@test "worktree init：父分支不存在时，优先使用 .gitmodules branch" {
+@test "wtide init：父分支不存在时，优先使用 .gitmodules branch" {
   local sub="${BATS_TEST_TMPDIR}/sub1"
   local parent="${BATS_TEST_TMPDIR}/parent1"
   local wt="${BATS_TEST_TMPDIR}/wt1"
@@ -57,7 +57,7 @@ create_parent_repo_with_submodule() {
 
   git -C "${parent}" worktree add -q -b "wt/test" "${wt}" main
 
-  run "${BATS_TEST_DIRNAME}/../gitx.sh" worktree init "${wt}" --no-fetch --no-pull
+  run "${BATS_TEST_DIRNAME}/../worktree/wtide.sh" init "${wt}" --no-fetch --no-pull
   [ "$status" -eq 0 ]
 
   run git -C "${wt}/libs/sub" rev-parse --abbrev-ref HEAD
@@ -65,7 +65,7 @@ create_parent_repo_with_submodule() {
   [ "$output" = "dev" ]
 }
 
-@test "worktree init：子模块存在与父分支同名分支时，优先切到父分支" {
+@test "wtide init：子模块存在与父分支同名分支时，优先切到父分支" {
   local sub="${BATS_TEST_TMPDIR}/sub2"
   local parent="${BATS_TEST_TMPDIR}/parent2"
   local wt="${BATS_TEST_TMPDIR}/wt2"
@@ -75,11 +75,10 @@ create_parent_repo_with_submodule() {
 
   git -C "${parent}" worktree add -q -b "wt/test" "${wt}" main
 
-  run "${BATS_TEST_DIRNAME}/../gitx.sh" worktree init "${wt}" --no-fetch --no-pull
+  run "${BATS_TEST_DIRNAME}/../worktree/wtide.sh" init "${wt}" --no-fetch --no-pull
   [ "$status" -eq 0 ]
 
   run git -C "${wt}/libs/sub" rev-parse --abbrev-ref HEAD
   [ "$status" -eq 0 ]
   [ "$output" = "wt/test" ]
 }
-
