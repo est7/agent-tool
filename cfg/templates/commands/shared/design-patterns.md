@@ -1,19 +1,9 @@
 ---
-description: "分析代码设计模式使用情况，检查 SOLID 原则，识别反模式"
-argument-hint: "<可选：文件或目录路径>"
+description: 分析代码设计模式使用情况，检查 SOLID 原则
+argument-hint: <可选：文件或目录路径>
 ---
 
-# 设计模式分析 (Design Patterns)
-
-分析代码的设计模式使用情况，评估 SOLID 原则遵循度，识别反模式并提供重构建议。
-
-## 使用方式
-
-```
-/design-patterns                     # 分析当前目录
-/design-patterns src/services/       # 分析指定目录
-/design-patterns src/payment.ts      # 分析指定文件
-```
+分析 `$ARGUMENTS` 指定的代码（默认当前目录），评估设计模式使用和 SOLID 原则遵循度。
 
 ## 分析维度
 
@@ -134,9 +124,8 @@ argument-hint: "<可选：文件或目录路径>"
    - 提取资料管理 → UserProfileService
 ```
 
-## 使用原则
+## 重构原则
 
 1. **解决实际问题** - 不为模式而模式
 2. **渐进式引入** - 一次只加一个模式
 3. **度量优先** - 重构前后对比指标
-4. **团队共识** - 确保团队理解所用模式

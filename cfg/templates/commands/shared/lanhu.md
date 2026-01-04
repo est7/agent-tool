@@ -1,9 +1,11 @@
-# 蓝湖设计稿代码提取（设计图截图）
+---
+description: 蓝湖设计稿代码提取（设计图截图）
+argument-hint: <蓝湖设计稿 URL>
+---
 
 从蓝湖 DDS 页面提取设计稿的 React/CSS 代码并保存，截图为「纯设计图」PNG。
 
-## 输入
-- `$ARGUMENTS`: 蓝湖设计稿 URL（包含 ddsUrl 参数的完整链接）
+**输入**: `$ARGUMENTS` - 蓝湖设计稿 URL（包含 ddsUrl 参数的完整链接）
 
 ---
 

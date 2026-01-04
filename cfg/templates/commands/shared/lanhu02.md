@@ -1,9 +1,11 @@
-# 蓝湖设计稿提取（优化版）
+---
+description: 蓝湖设计稿提取（优化版）
+argument-hint: <蓝湖设计稿 URL>
+---
 
 从蓝湖 DDS 页面提取设计稿的代码和设计图，生成 `spec.md` 供下游 agent 使用。
 
-## 输入
-- `$ARGUMENTS`: 蓝湖设计稿 URL
+**输入**: `$ARGUMENTS` - 蓝湖设计稿 URL
 
 ---
 

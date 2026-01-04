@@ -1,9 +1,11 @@
-# 蓝湖设计稿提取（生成跨平台开发规格）
+---
+description: 蓝湖设计稿提取（生成跨平台开发规格）
+argument-hint: <蓝湖设计稿 URL>
+---
 
 从蓝湖 DDS 页面提取设计稿的 HTML/CSS 代码和设计图，生成标准化的 `spec.md` 供下游 agent（Android/iOS）使用。
 
-## 输入
-- `$ARGUMENTS`: 蓝湖设计稿 URL（包含 ddsUrl 参数的完整链接）
+**输入**: `$ARGUMENTS` - 蓝湖设计稿 URL（包含 ddsUrl 参数的完整链接）
 
 ---
 

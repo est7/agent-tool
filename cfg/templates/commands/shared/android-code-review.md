@@ -1,13 +1,13 @@
 ---
-description: "对 Android/Kotlin 代码进行专业审查，检查状态管理、协程使用、架构分层等最佳实践"
-argument-hint: "<可选：要审查的文件路径或关注点>"
+description: 对 Android/Kotlin 代码进行专业审查
+argument-hint: <可选：要审查的文件路径或关注点>
 allowed-tools:
   - Bash
 ---
 
-# Android/Kotlin Code Reviewer
+审查 `$ARGUMENTS` 指定的 Android/Kotlin 代码，检查以下方面：
 
-## Android 特定检查
+## 检查项
 
 ### 1. 状态管理
 
