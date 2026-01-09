@@ -336,6 +336,7 @@ EOF
 ensure_dir "${AGENT_HOME}/skills/shared"
 ensure_dir "${AGENT_HOME}/skills/claude-only"
 ensure_dir "${AGENT_HOME}/skills/codex-only"
+ensure_dir "${AGENT_HOME}/skills/gemini-only"
 
 ensure_dir "${AGENT_HOME}/output-styles/shared"
 ensure_dir "${AGENT_HOME}/output-styles/claude-only"
@@ -782,6 +783,14 @@ fi
 link_dir_contents "${AGENT_HOME}/commands/shared" "$gemini_home/commands" "*.md"
 link_dir_contents "${AGENT_HOME}/commands/gemini-only" "$gemini_home/commands" "*.md"
 
+# Skills: shared + gemini-only
+
+if ! $DRY_RUN; then
+  mkdir -p "$gemini_home/skills"
+fi
+link_dir_contents "${AGENT_HOME}/skills/shared" "$gemini_home/skills"
+link_dir_contents "${AGENT_HOME}/skills/gemini-only" "$gemini_home/skills"
+
 # 配置 1mcp HTTP 端点（settings.json 中的 mcpServers）
 configure_gemini_1mcp "$gemini_home"
 
@@ -825,6 +834,7 @@ remove_links_pointing_to_ai "${HOME}/.claude/skills"
 remove_links_pointing_to_ai "${HOME}/.codex/prompts"
 remove_links_pointing_to_ai "${HOME}/.codex/skills"
 remove_links_pointing_to_ai "${HOME}/.gemini/commands"
+remove_links_pointing_to_ai "${HOME}/.gemini/skills"
 
 log_success "卸载完成（只移除了指向 AGENT_HOME 的软链接，未删除任何真实目录/文件）。"
 }
