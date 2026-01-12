@@ -159,6 +159,132 @@ If `allowed-tools` is omitted, the Skill doesn't restrict tools. Claude uses its
 
 **Note**: `allowed-tools` is only supported for Skills in Claude Code.
 
+### Available Tools Reference
+
+#### Built-in Tools
+
+| Tool Name | Description | Default Permission |
+|-----------|-------------|-------------------|
+| `Read` | Read file contents | Auto-allowed |
+| `Write` | Create/overwrite files | Requires permission |
+| `Edit` | Edit existing files | Requires permission |
+| `Bash` | Execute shell commands | Requires permission |
+| `Glob` | Pattern-based file search | Auto-allowed |
+| `Grep` | Search file contents | Auto-allowed |
+| `Task` | Run sub-agents | Auto-allowed |
+| `WebFetch` | Fetch URL content | Requires permission |
+| `WebSearch` | Web search | Requires permission |
+| `NotebookEdit` | Edit Jupyter notebooks | Requires permission |
+| `TodoWrite` | Manage task lists | Auto-allowed |
+| `AskUserQuestion` | Ask user questions | Auto-allowed |
+| `Skill` | Execute other Skills | Requires permission |
+| `KillShell` | Kill background shell | Auto-allowed |
+
+#### Fine-grained Permission Syntax
+
+**Bash - Command Pattern Matching:**
+
+| Pattern | Meaning | Example Matches |
+|---------|---------|-----------------|
+| `Bash(cmd)` | Exact command | Only `cmd` |
+| `Bash(cmd:*)` | Prefix match | `cmd`, `cmd --flag`, `cmd arg` |
+| `Bash(cmd *)` | Wildcard | `cmd foo`, `cmd bar --baz` |
+| `Bash(* suffix)` | Ends with | `any suffix`, `foo suffix` |
+
+```yaml
+allowed-tools:
+  - Bash(git status)           # Exact: only "git status"
+  - Bash(git:*)                # Prefix: git, git status, git commit -m "msg"
+  - Bash(npm run *)            # Wildcard: npm run build, npm run test
+  - Bash(python:*)             # All python commands
+  - Bash(./scripts/*.sh)       # Shell scripts in scripts/
+```
+
+**Read/Edit - Path Pattern Matching (gitignore-style):**
+
+| Pattern | Meaning |
+|---------|---------|
+| `Read` | All files |
+| `Read(path)` | Relative to settings file |
+| `Read(~/.file)` | Home directory |
+| `Read(//abs/path)` | Absolute path (double slash) |
+| `Read(**/*.ext)` | Recursive glob |
+
+```yaml
+allowed-tools:
+  - Read(src/**)               # All files under src/
+  - Read(*.json)               # JSON files in current dir
+  - Read(**/*.md)              # All markdown files recursively
+  - Read(~/.config/*)          # User config files
+  - Read(//etc/hosts)          # Absolute path
+  - Edit(docs/**)              # Edit only docs folder
+```
+
+**WebFetch - Domain Restrictions:**
+
+```yaml
+allowed-tools:
+  - WebFetch                           # All domains allowed
+  - WebFetch(domain:github.com)        # Only github.com
+  - WebFetch(domain:*.googleapis.com)  # Google API subdomains
+  - WebFetch(domain:docs.python.org)   # Python docs only
+```
+
+**MCP Tools - External Service Access:**
+
+Format: `mcp__<server-name>__<tool-name>`
+
+```yaml
+allowed-tools:
+  - mcp__puppeteer                     # All puppeteer tools
+  - mcp__puppeteer__*                  # Same (explicit wildcard)
+  - mcp__puppeteer__puppeteer_navigate # Specific tool only
+  - mcp__github__create_issue          # GitHub issue creation
+  - mcp__sequential-thinking__*        # All thinking tools
+```
+
+**Task - Sub-agent Type Restrictions:**
+
+```yaml
+allowed-tools:
+  - Task                        # All sub-agent types
+  - Task(Explore)               # Only Explore agent
+  - Task(Plan)                  # Only Plan agent
+  - Task(Bash)                  # Only Bash agent
+  - Task(general-purpose)       # Only general-purpose agent
+```
+
+### Complete Example with Fine-grained Tools
+
+```yaml
+---
+name: safe-git-operations
+description: Performs git operations with restricted permissions. Use for git-related tasks requiring careful access control.
+allowed-tools:
+  - Read(*.md)
+  - Read(src/**)
+  - Glob
+  - Grep
+  - Bash(git status:*)
+  - Bash(git diff:*)
+  - Bash(git log:*)
+  - Bash(git add:*)
+  - Bash(git commit:*)
+---
+
+# Safe Git Operations
+
+This skill can only:
+- Read markdown and source files
+- Search files with Glob/Grep
+- Run specific git commands (status, diff, log, add, commit)
+
+It cannot:
+- Write or edit files directly
+- Run arbitrary bash commands
+- Access files outside src/ and *.md
+```
+
 ---
 
 ## Run Skills in a Forked Context

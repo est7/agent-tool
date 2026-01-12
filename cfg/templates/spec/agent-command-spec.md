@@ -49,6 +49,77 @@ disable-model-invocation: true
 | `model` | string | Inherits | Specific model for this command |
 | `disable-model-invocation` | boolean | `false` | Prevent SlashCommand tool from calling this |
 
+### Available Tools for `allowed-tools`
+
+#### Built-in Tools
+
+| Tool Name | Description | Requires Permission |
+|-----------|-------------|---------------------|
+| `Read` | Read file contents | No |
+| `Write` | Create/overwrite files | Yes |
+| `Edit` | Edit existing files | Yes |
+| `Bash` | Execute shell commands | Yes |
+| `Glob` | Pattern-based file search | No |
+| `Grep` | Search file contents | No |
+| `Task` | Run sub-agents | No |
+| `WebFetch` | Fetch URL content | Yes |
+| `WebSearch` | Web search | Yes |
+| `NotebookEdit` | Edit Jupyter notebooks | Yes |
+| `TodoWrite` | Manage task lists | No |
+| `AskUserQuestion` | Ask user questions | No |
+
+#### Fine-grained Tool Syntax
+
+**Bash - Command Matching:**
+
+```yaml
+allowed-tools:
+  - Bash(git status)           # Exact match
+  - Bash(git status:*)         # Prefix match: git status --short, etc.
+  - Bash(npm *)                # Wildcard: any npm command
+  - Bash(* --version)          # Any command ending with --version
+  - Bash(python scripts/*.py)  # Wildcard in arguments
+```
+
+**Read/Edit - Path Matching (gitignore syntax):**
+
+```yaml
+allowed-tools:
+  - Read                       # All files
+  - Read(src/**)               # All files under src/
+  - Read(*.md)                 # All markdown files
+  - Read(~/.zshrc)             # Home directory path
+  - Read(//etc/hosts)          # Absolute path (double slash)
+  - Edit(/docs/**)             # Relative to settings file
+```
+
+**WebFetch - Domain Restrictions:**
+
+```yaml
+allowed-tools:
+  - WebFetch                           # All domains
+  - WebFetch(domain:github.com)        # Specific domain
+  - WebFetch(domain:*.example.com)     # Wildcard subdomain
+```
+
+**MCP Tools:**
+
+```yaml
+allowed-tools:
+  - mcp__puppeteer              # All tools from puppeteer server
+  - mcp__puppeteer__*           # Same as above (wildcard)
+  - mcp__github__create_issue   # Specific tool
+```
+
+**Task - Sub-agent Restrictions:**
+
+```yaml
+allowed-tools:
+  - Task                        # All sub-agents
+  - Task(Explore)               # Only Explore agent
+  - Task(Plan)                  # Only Plan agent
+```
+
 ## Parameter Placeholders
 
 ### All Arguments: `$ARGUMENTS`
