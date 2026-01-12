@@ -539,7 +539,7 @@ AGENT_HOME="$HOME/.agents"
   - `doctor/cfg_doctor.sh`：检查统一配置目录（AGENT_HOME）与软链状态
   - `doctor/platforms.sh`：针对 Android / iOS / Web 的构建环境自检 (`doctor_*_environment` + `doctor_agent_environment`)
 - `cfg/` 目录
-  - `cfg/install_symlinks.sh`：初始化/刷新软链，配置 1mcp HTTP 端点
+  - `cfg/install_symlinks.sh`：初始化/刷新软链，为 Claude Code、Codex CLI、Gemini CLI 配置统一的 commands/skills/hooks 等目录结构，配置 1mcp HTTP 端点
   - `cfg/1mcp/index.sh`：1mcp 子命令（install/start/stop/status/enable/disable/logs/init-project）
   - `cfg/aliases.sh`：别名 loader（按职责拆分在 `cfg/aliases.d/*.sh` 中）
   - `cfg/index.sh`：提供 `agent_error` 等通用工具函数

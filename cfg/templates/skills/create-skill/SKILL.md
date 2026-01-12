@@ -1,8 +1,10 @@
 ---
-name: skill-creator
+name: create-skill
 description: Guide for creating effective skills. Use when users want to create a new skill, update an existing skill, or need help with SKILL.md files, frontmatter fields, skill structure, naming conventions, or skill development best practices for Claude Code.
 license: Complete terms in LICENSE.txt
 ---
+
+> **💡 Prompt Engineering**: Skills contain prompts and instructions for AI agents. Consider loading the `prompt-engineering` skill for best practices on writing effective agent instructions, clear descriptions, and persuasive directives.
 
 # Skill Creator
 

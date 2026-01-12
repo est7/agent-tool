@@ -1,8 +1,8 @@
 ---
-name: sayhello
+name: say-hello
 description: 用于验证 skills 管线是否可用的最小示例。当用户要求测试 Skill 是否工作时使用此 skill。
 allowed-tools:
-  - Bash(~/.claude/skills/sayhello/scripts/run.sh:*)
+  - Bash(~/.claude/skills/say-hello/scripts/run.sh:*)
 metadata:
   category: demo
 ---
@@ -15,12 +15,12 @@ metadata:
 
 1. 使用 Bash 工具执行脚本（使用绝对路径）：
    ```bash
-   ~/.claude/skills/sayhello/scripts/run.sh
+   ~/.claude/skills/say-hello/scripts/run.sh
    ```
 
 2. 可选：传入自定义名称参数：
    ```bash
-   ~/.claude/skills/sayhello/scripts/run.sh "YourName"
+   ~/.claude/skills/say-hello/scripts/run.sh "YourName"
    ```
 
 3. 返回脚本输出，并告知用户 Skill 已成功加载并执行。
