@@ -111,32 +111,52 @@ $AGENT_HOME
     "sequential-thinking": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "disabled": false,
       "tags": ["core", "all"]
     },
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "args": ["-y", "@upstash/context7-mcp@latest", "--api-key", "YOUR_API_KEY"],
+      "disabled": false,
       "tags": ["core", "all", "search"]
     },
-    "memory": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-memory"],
-      "tags": ["core", "all"]
+    "auggie-mcp": {
+      "type": "stdio",
+      "command": "auggie",
+      "args": ["--mcp", "--mcp-auto-workspace"],
+      "disabled": false,
+      "tags": ["core", "search", "all"]
     },
     "claudecode-mcp-async": {
       "command": "uvx",
       "args": ["claudecode-mcp-async"],
+      "disabled": false,
       "tags": ["agent-cli", "all"]
     },
     "codex-mcp-async": {
       "command": "uvx",
       "args": ["codex-mcp-async"],
+      "disabled": false,
       "tags": ["agent-cli", "all"]
     },
     "gemini-cli-mcp-async": {
       "command": "uvx",
       "args": ["gemini-cli-mcp-async"],
+      "disabled": false,
       "tags": ["agent-cli", "all"]
+    },
+    "github": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" },
+      "disabled": false,
+      "tags": ["search", "all"]
+    },
+    "jetbrains": {
+      "type": "sse",
+      "url": "http://localhost:64343/sse",
+      "disabled": true,
+      "tags": ["ide", "all"]
     }
   }
 }
@@ -148,9 +168,11 @@ MCP servers 通过 tags 分类，支持在项目级别使用 preset 过滤：
 
 | Preset | Tags | 包含的 Servers |
 |--------|------|---------------|
-| `all` | 全部 | 6 个（默认） |
-| `core` | core | sequential-thinking, context7, memory |
+| `all` | 全部 | 7 个（默认；jetbrains 需手动启用） |
+| `core` | core | sequential-thinking, context7, auggie-mcp |
+| `search` | search | context7, auggie-mcp, github |
 | `agent-cli` | agent-cli | claudecode/codex/gemini-cli-mcp-async |
+| `ide` | ide | jetbrains |
 
 ### 常用命令
 

@@ -444,10 +444,12 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 |--------|------|------|
 | `sequential-thinking` | core, all | 结构化思考 |
 | `context7` | core, all, search | 库/框架文档查询 |
-| `memory` | core, all | 知识图谱 |
+| `auggie-mcp` | core, search, all | AI 语义代码检索（codebase-retrieval） |
 | `claudecode-mcp-async` | agent-cli, all | Claude Code 异步调用 |
 | `codex-mcp-async` | agent-cli, all | Codex CLI 异步调用 |
 | `gemini-cli-mcp-async` | agent-cli, all | Gemini CLI 异步调用 |
+| `github` | search, all | GitHub 全平台检索与项目管理 |
+| `jetbrains` | ide, all | JetBrains IDE 集成（SSE，默认禁用，需手动启用） |
 
 ## 开发与校验
 

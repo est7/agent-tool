@@ -2,33 +2,102 @@
   "mcpServers": {
     "sequential-thinking": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
-      "tags": ["core", "all"]
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "disabled": false,
+      "tags": [
+        "core",
+        "all"
+      ]
     },
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest", "--api-key", "YOUR_API_KEY"],
-      "tags": ["core", "all", "search"]
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest",
+        "--api-key",
+        "YOUR_API_KEY"
+      ],
+      "disabled": false,
+      "tags": [
+        "core",
+        "all",
+        "search"
+      ]
     },
-    "devtools": {
-      "command": "npx",
-      "args": ["-y", "chrome-devtools-mcp@latest"],
-      "tags": ["web", "all"]
+    "auggie-mcp": {
+      "type": "stdio",
+      "command": "auggie",
+      "args": [
+        "--mcp",
+        "--mcp-auto-workspace"
+      ],
+      "disabled": false,
+      "tags": [
+        "core",
+        "search",
+        "all"
+      ]
     },
     "claudecode-mcp-async": {
       "command": "uvx",
-      "args": ["claudecode-mcp-async"],
-      "tags": ["agent-cli", "all"]
+      "args": [
+        "claudecode-mcp-async"
+      ],
+      "disabled": false,
+      "tags": [
+        "agent-cli",
+        "all"
+      ]
     },
     "codex-mcp-async": {
       "command": "uvx",
-      "args": ["codex-mcp-async"],
-      "tags": ["agent-cli", "all"]
+      "args": [
+        "codex-mcp-async"
+      ],
+      "disabled": false,
+      "tags": [
+        "agent-cli",
+        "all"
+      ]
     },
     "gemini-cli-mcp-async": {
       "command": "uvx",
-      "args": ["gemini-cli-mcp-async"],
-      "tags": ["agent-cli", "all"]
+      "args": [
+        "gemini-cli-mcp-async"
+      ],
+      "disabled": false,
+      "tags": [
+        "agent-cli",
+        "all"
+      ]
+    },
+    "github": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      },
+      "disabled": false,
+      "tags": [
+        "search",
+        "all"
+      ]
+    },
+    "jetbrains": {
+      "type": "sse",
+      "url": "http://localhost:64343/sse",
+      "disabled": true,
+      "tags": [
+        "ide",
+        "all"
+      ]
     }
   }
 }
