@@ -58,8 +58,9 @@
 | **codex-mcp-async** | 在 Claude/Gemini 中调用 Codex | 跨 Agent 异步协作 |
 | **gemini-cli-mcp-async** | 在 Claude/Codex 中调用 Gemini | 跨 Agent 异步协作 |
 | **github** | 搜索开源实现、查找类似库、查看仓库代码、管理 Issue/PR | GitHub 全平台检索与项目管理 |
+| **google-developer-knowledge** | 查询 Google 系产品文档（Android、Firebase、Cloud、Maps 等） | Google 官方开发者文档检索 |
 | **jetbrains** | 需要在 JetBrains IDE 中执行操作（导航、重构、运行配置等） | JetBrains IDE 集成（SSE） |
-| **codebase-retrieval** | 理解本地代码架构、追踪调用链、编辑前获取上下文 | AI 语义代码检索（详见第 5 章） |
+| **auggie-mcp** (codebase-retrieval) | 理解本地代码架构、追踪调用链、编辑前获取上下文 | AI 语义代码检索（详见第 5 章） |
 
 ---
 
@@ -101,9 +102,18 @@
 - 查询非公开的内部文档或私有 API
 
 **使用约束**：
-- 自动解析库名，返回相关上下文
+- 使用第三方库时，**优先查询 Context7** 获取最新文档，防止生成过时或不存在的 API
+- 调用工作流：先 `resolve-library-id` 获取 Context7 ID（用户已提供 `/org/project` 格式时可跳过）→ 再 `get-library-docs` 获取文档
 - 查询时指定具体的库名和版本号以提高准确性
 - 优先用于 Agent 知识截止日期之后的新版本特性
+
+**与 `google-developer-knowledge` 的选择标准**：
+
+| 查询目标 | 选择 |
+|---------|------|
+| Google 系产品（Android SDK、Firebase、Cloud、Maps、TensorFlow 等） | `google-developer-knowledge` 优先 |
+| 非 Google 的第三方库（OkHttp、React、Spring 等） | `context7` |
+| 两者都涉及（如 Retrofit + Firebase Auth） | 分别查询各自擅长的部分 |
 
 ### 4.3 Async MCP（跨 Agent 协作）
 
@@ -178,6 +188,8 @@
 
 通过 SSE 协议连接本地运行的 JetBrains IDE（IntelliJ IDEA、Android Studio、WebStorm 等），端口固定为 64343。
 
+决策规则与降级策略见 `jetbrains-mcp.md`；执行方法见 `jetbrains-skill`。
+
 **适用场景**：
 - 在 IDE 中执行代码导航（跳转到定义、查找用法、查看类层次）
 - 触发 IDE 内置重构操作（重命名、提取方法/变量、移动类）
@@ -195,6 +207,43 @@
 - 需要 JetBrains IDE 已安装并启用 MCP 插件
 - IDE 必须处于运行状态，端口 64343 可达
 - 操作结果依赖 IDE 当前打开的项目上下文
+
+### 4.6 Google Developer Knowledge（Google 官方文档检索）
+
+Google 提供的远程 MCP 服务（HTTP 类型），通过 `GOOGLE_DEVELOPER_KNOWLEDGE_API_KEY` 鉴权，直接检索 Google 官方开发者文档。
+
+#### 核心工具
+
+| 工具 | 说明 |
+|------|------|
+| `search_documents` | 搜索 Google 开发者文档，返回文档片段（snippet）、名称和 URL |
+| `get_document` | 根据 `parent` 字段获取单个文档的完整内容 |
+| `batch_get_documents` | 批量获取最多 20 个文档的完整内容（优先于多次 `get_document`） |
+
+#### 覆盖范围
+
+Android (`developer.android.com`)、Firebase (`firebase.google.com`)、Google Cloud (`docs.cloud.google.com`)、Chrome (`developer.chrome.com`)、Google AI (`ai.google.dev`)、Google Maps / Ads / Search / YouTube (`developers.google.com`)、Google Home (`developers.home.google.com`)、TensorFlow (`www.tensorflow.org`)、Web (`web.dev`)、Apigee (`docs.apigee.com`)、Fuchsia (`fuchsia.dev`)
+
+#### 适用场景
+
+- 查询 Google 系 SDK 的 API 用法、参数签名、代码示例
+- 获取 Android / Firebase / Cloud 等产品的最佳实践和配置指南
+- 排查 Google API 相关错误（如 Maps API key 问题、Cloud IAM 配置）
+- 对比 Google 产品的功能差异（如 Cloud Run vs Cloud Functions）
+
+#### 不适用场景
+
+- 查询非 Google 的第三方库文档（改用 `context7`）
+- 搜索项目自身代码（改用 `codebase-retrieval`）
+- 查询 GitHub、博客、YouTube 等非官方文档来源（不在覆盖范围内）
+- 非英语文档查询（仅支持英文结果）
+
+#### 使用约束
+
+- **仅英文结果**：不支持中文等其他语言的文档
+- **仅公开文档**：不含 GitHub、OSS 站点、博客或 YouTube 内容
+- **网络依赖**：依赖 Google Cloud 在线服务，离线不可用
+- **推荐工作流**：先 `search_documents` 获取片段 → 片段不够详细时用 `get_document` 或 `batch_get_documents` 获取全文
 
 
 ---
@@ -251,6 +300,8 @@
 | 批量重命名前检查 | `grep` |
 | IDE 内导航 / 重构 / 运行 | `jetbrains` |
 | IDE 内置代码检查（Inspection） | `jetbrains` |
+| 查询 Google 系产品文档（Android、Firebase、Cloud 等） | `google-developer-knowledge` |
+| 查询非 Google 的第三方库文档 | `context7` |
 
 ---
 
@@ -261,28 +312,28 @@
 ### 6.1 技术选型调研
 
 ```
-github (search_repositories)  →  context7  →  sequential-thinking
-   发现候选库                    查 API 文档      权衡 pros/cons 做决策
+github (search_repositories)  →  context7 / google-developer-knowledge  →  sequential-thinking
+   发现候选库                    查 API 文档（按产品归属选择）          权衡 pros/cons 做决策
 ```
 
 **典型流程**：
 1. `github`: `search_repositories` 按语言 + stars 筛选候选库
 2. `github`: `get_file_contents` 阅读候选库 README 和核心代码
-3. `context7`: 查询各候选库的 API 文档和最新版本特性
+3. 文档查询（按归属选择）：Google 系产品用 `google-developer-knowledge`，其他用 `context7`
 4. `sequential-thinking`: 列出对比维度，逐步权衡，输出推荐方案
 
 ### 6.2 新代码库上手
 
 ```
-codebase-retrieval  →  github (search_code)  →  context7
-   理解本地架构          搜索类似项目的实现        查依赖库的文档
+codebase-retrieval  →  github (search_code)  →  context7 / google-developer-knowledge
+   理解本地架构          搜索类似项目的实现        查依赖库的文档（按产品归属选择）
 ```
 
 **典型流程**：
 1. `codebase-retrieval`: 了解项目整体架构、模块划分、核心入口
 2. `codebase-retrieval`: 追踪关键业务流程的调用链
 3. `github`: `search_code` 搜索同类项目中类似功能的实现方式作为参考
-4. `context7`: 查询项目使用的框架/库的 API 文档
+4. 文档查询：Google 系产品用 `google-developer-knowledge`，其他用 `context7`
 
 ### 6.3 复杂功能规划
 
@@ -299,19 +350,33 @@ codebase-retrieval  →  sequential-thinking  →  async-mcp (可选)
 ### 6.4 Bug 排查
 
 ```
-codebase-retrieval  →  github (search_issues)  →  context7
-   定位问题代码            搜索已知 Issue            查 API 正确用法
+codebase-retrieval  →  github (search_issues)  →  context7 / google-developer-knowledge
+   定位问题代码            搜索已知 Issue            查 API 正确用法（按产品归属选择）
 ```
 
 **典型流程**：
 1. `codebase-retrieval`: 根据错误现象定位相关代码和调用链
 2. `github`: `search_issues` 在依赖库中搜索是否为已知问题
-3. `context7`: 确认 API 的正确用法，排除误用
+3. 文档查询：Google 系 API 问题用 `google-developer-knowledge`，其他用 `context7`
 
 ---
 
 ## 7. 失败降级
 
+### 7.1 通用原则
+
 - 首选服务失败时，尝试备用服务
 - 全部失败时，提供保守的本地答案并标注不确定性
 - 记录失败原因，便于后续优化
+
+### 7.2 各服务降级策略
+
+| 服务 | 降级方案 |
+|------|---------|
+| `context7` | 改用 `google-developer-knowledge`（Google 产品）或 Agent 自身知识 + `WebSearch` |
+| `google-developer-knowledge` | 改用 `context7`（如覆盖范围有交集）或 Agent 自身知识 + `WebSearch` |
+| `github` | 改用 `gh` CLI（`gh api`、`gh search`、`gh pr`）|
+| `auggie-mcp` (codebase-retrieval) | 改用 `grep` + 文件读取 + IDE 索引搜索 |
+| `jetbrains` | 见 `jetbrains-mcp.md` §5 降级策略 |
+| `sequential-thinking` | Agent 内部推理（不使用外部工具） |
+| `async-mcp`（跨 Agent） | 当前 Agent 独立完成任务 |

@@ -1,0 +1,46 @@
+<HardRules>
+  <Rule>
+    在行动前，始终将工作拆分为小的、独立的任务。
+  </Rule>
+  <Rule>
+    如果 tool:runSubagent 可用，以下情况必须使用它：
+    <Conditions>
+      <Condition>研究或调查</Condition>
+      <Condition>多步骤规划</Condition>
+      <Condition>高上下文推理</Condition>
+      <Condition>网络搜索或外部知识收集</Condition>
+      <Condition>编辑或分析大量文件</Condition>
+    </Conditions>
+    如果 tool:runSubagent 不可用，跳过所有仅限子代理的步骤。
+  </Rule>
+  <Rule>
+    绝不在主代理中执行研究、探索或大型推理链。
+    将这些任务委托给子代理。
+  </Rule>
+  <Rule>
+    在读取、修改或推理代码之前，始终使用 tool:codebase-retrieval
+    作为主要上下文引擎。
+  </Rule>
+  <Rule>
+    绝不依赖对代码库的假设；
+    先使用 tool:codebase-retrieval 获取精确上下文。
+  </Rule>
+  <Rule>
+    以小批量方式提交更改（最多 3–5 个文件）。
+    如需更多，拆分为多个子代理任务。
+  </Rule>
+  <Rule>
+    遵守行长度 = 100 以及所有 Ruff 规则。
+  </Rule>
+  <Rule>
+    立即删除未使用的导入、变量和死代码。
+  </Rule>
+  <Rule>
+    更改后，始终运行：
+    <Commands>
+      <Command>uvx ruff check .</Command>
+      <Command>uvx ty check .</Command>
+    </Commands>
+    在所有问题解决之前不得继续。不要使用 'uvx run'；始终使用 'uv run'。
+  </Rule>
+</HardRules>

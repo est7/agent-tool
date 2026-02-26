@@ -1,20 +1,23 @@
 # Shared Slash Commands
 
+English summary: this directory contains slash command templates intended to be shared across projects.
+
+---
+
+## 中文说明
+
 本目录包含跨项目共享的 slash commands。
 
 ## 命令列表
 
 | 命令 | 用途 |
 |------|------|
-| `/plan` | 使用 sequential-thinking 生成执行计划 |
+| `/deep-plan` | 深度分析规划，含 review gate |
 | `/catchup` | 收集多模块仓库未提交更改 |
 | `/simple-catchup` | 快速查看当前分支变更 |
-| `/sequential-think` | 深度结构化思考，复杂决策分析 |
-| `/role-debate` | 多角色辩论，权衡评估 |
 | `/smart-review` | 智能推荐代码审查角色 |
 | `/android-code-review` | Android/Kotlin 代码专业审查 |
 | `/design-patterns` | 设计模式和 SOLID 原则分析 |
-| `/tech-debt` | 技术债务量化评估 |
 | `/enhance-prompt` | 交互式优化模糊指令 |
 | `/enhance-spec` | 采访式需求规格细化 |
 | `/remove-ai-junk-code` | 清理 AI 生成的代码垃圾 |
@@ -26,18 +29,24 @@
 
 ## 使用方式与适用场景
 
-### /plan
+### /deep-plan
 
 **使用方式**:
 ```
-/plan 帮我设计 XXX 的实现方案
-/plan 重构用户认证模块
+/deep-plan 帮我设计 XXX 的实现方案
+/deep-plan 重构用户认证模块
+/deep-plan 微服务 vs 单体架构选择
 ```
 
 **适用场景**:
-- 需要结构化规划的复杂任务
-- 想要把计划落地到 `plan/` 目录
-- 需要 sequential-thinking MCP 辅助分解任务
+- 需要结构化规划的复杂任务（功能开发、架构设计、迁移方案）
+- 影响深远的技术决策（方案权衡、风险评估）
+- 想要先 review 再执行（"寸止"模式）
+
+**工作流**:
+1. 复杂度评估 → sequential-thinking 分析
+2. 生成执行计划 → 展示给用户 Review
+3. 用户确认后 → 写入 `plan/` 目录 → 开始执行
 
 ---
 
@@ -66,47 +75,6 @@
 **适用场景**:
 - 快速了解当前分支相对 develop 的变更
 - 单仓库项目
-
----
-
-### /sequential-think
-
-**使用方式**:
-```
-/sequential-think 微服务 vs 单体架构选择
-/sequential-think 技术栈迁移方案评估
-/sequential-think API 响应时间从 2s 降到 200ms
-```
-
-**适用场景**:
-- 影响深远的架构决策
-- 多方案权衡比较
-- 复杂系统设计
-- 技术债务偿还策略
-
-**不适用**:
-- 简单的 Bug 修复
-- 明确的功能实现
-- 日常代码审查
-
----
-
-### /role-debate
-
-**使用方式**:
-```
-/role-debate security,performance JWT Token 过期时间设置
-/role-debate architect,frontend,mobile 状态管理方案选择
-/role-debate backend,security 数据库加密策略
-```
-
-**可用角色**: security, performance, architect, frontend, backend, mobile, analyzer
-
-**适用场景**:
-- 技术选型（框架、数据库、云服务）
-- 架构设计（微服务 vs 单体、同步 vs 异步）
-- 权衡决策（安全 vs 性能、体验 vs 成本）
-- 跨平台策略
 
 ---
 
@@ -156,23 +124,6 @@
 - 识别设计模式使用情况
 - 检查 SOLID 原则遵循度
 - 发现反模式并获取重构建议
-
----
-
-### /tech-debt
-
-**使用方式**:
-```
-/tech-debt                    # 分析当前项目
-/tech-debt ./backend          # 分析指定目录
-/tech-debt 关注安全问题        # 带关注领域
-```
-
-**适用场景**:
-- 项目健康度评估
-- 制定技术债务偿还计划
-- 优先级排序（基于 ROI）
-- Sprint 规划参考
 
 ---
 

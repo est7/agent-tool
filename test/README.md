@@ -1,3 +1,15 @@
+# test
+
+Project test entry points used by `agent-tool.sh test ...`, plus lightweight CLI self-check helpers.
+
+Notes:
+
+- Repository-level automated tests for this repo (e.g. Bats) should live under the top-level `tests/` directory (not this module directory).
+
+---
+
+## 中文说明
+
 模块：test
 
 用于集中放置与「项目级测试入口」相关的逻辑（即 `agent-tool test ...` 子命令实现），以及内部使用的 CLI 自检工具函数。

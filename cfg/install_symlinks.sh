@@ -462,6 +462,9 @@ ensure_dir "${AGENT_HOME}/rules"
     for template in "${rules_template_dir}"/*.md; do
       local name
       name="$(basename "${template}")"
+      if [[ "${name}" == "README.md" ]]; then
+        continue
+      fi
       local dest="${AGENT_HOME}/rules/${name}"
       if [[ ! -f "${dest}" ]]; then
         if $DRY_RUN; then

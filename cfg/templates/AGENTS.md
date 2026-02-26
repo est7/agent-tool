@@ -9,7 +9,7 @@
 
 ## Project Hygiene
 
-- Root directory and every module directory must contain an English README.md explaining usage; update only when the public interface or usage changes.
+- Root directory and every module directory must contain an README.md explaining usage; update only when the public interface or usage changes.
 - Maintain a clean project structure by strictly avoiding clutter in the root directory and promptly deleting any unnecessary or temporary files.
 - Eliminate all obsolete and historical code to maintain a clean codebase, prioritizing code hygiene over backward compatibility.
 - Ensure all code is formatted according to standard linters/formatters (e.g., Prettier, Ruff, ESLint) before committing.

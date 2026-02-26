@@ -18,7 +18,7 @@
         "-y",
         "@upstash/context7-mcp@latest",
         "--api-key",
-        "YOUR_API_KEY"
+        "${CONTEXT7_API_KEY}"
       ],
       "disabled": false,
       "tags": [
@@ -82,7 +82,19 @@
         "ghcr.io/github/github-mcp-server"
       ],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}"
+      },
+      "disabled": false,
+      "tags": [
+        "search",
+        "all"
+      ]
+    },
+    "google-developer-knowledge": {
+      "type": "http",
+      "url": "https://developerknowledge.googleapis.com/mcp",
+      "headers": {
+        "X-Goog-Api-Key": "${GOOGLE_DEVELOPER_KNOWLEDGE_API_KEY}"
       },
       "disabled": false,
       "tags": [

@@ -1,3 +1,15 @@
+# doctor
+
+Self-check scripts for validating the local environment and this CLI.
+
+Current scripts:
+
+- `cfg_doctor.sh`: checks `$AGENT_HOME` structure and symlink status.
+
+---
+
+## 中文说明
+
 模块：doctor
 
 自检脚本集中处，当前包含：

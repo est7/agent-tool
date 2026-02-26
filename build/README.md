@@ -1,3 +1,13 @@
+# build
+
+Platform build/run helpers used by `agent-tool.sh build` and `agent-tool.sh run`.
+
+Main entry points live in `build/platforms.sh`, which dispatches per-platform build logic and optionally fills defaults from `.agent-build.yml`.
+
+---
+
+## 中文说明
+
 模块：build
 
 用于平台构建/运行相关子脚本的集中存放位置。

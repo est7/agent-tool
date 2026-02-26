@@ -1,5 +1,24 @@
 # agent-tool
 
+Shell-based CLI for managing per-task Agent workspaces inside any Git repository, plus common platform build/run/test entry points.
+
+Key directories:
+
+- `cfg/`: shared configuration and `1mcp` gateway helpers
+- `ws/`: workspace lifecycle (`create/cleanup/list/status`)
+- `doctor/`: environment and CLI self-checks
+- `build/`, `test/`, `dev/`: platform build/test and future dev workflows
+
+Quick commands:
+
+- `./agent-tool.sh help` / `./agent-tool.sh help <group>`
+- `./agent-tool.sh cfg init` (initialize `$AGENT_HOME`, defaults to `~/.agents`)
+- `./agent-tool.sh cfg 1mcp restart` (restart the MCP gateway after config changes)
+
+---
+
+## 中文说明
+
 用于在任意 Git 仓库中创建 / 管理针对单个任务的 Agent 工作空间, 并为常见平台提供统一的构建/运行入口。内部按模块目录拆分：
 
 - `cfg/`：统一配置脚本（软链初始化/刷新、1mcp 网关管理、MCP 配置生成）

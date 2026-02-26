@@ -1,5 +1,13 @@
 # 1mcp - 统一 MCP 网关
 
+1mcp is an MCP (Model Context Protocol) gateway that lets multiple Agent CLIs (Claude Code, Codex CLI, Gemini CLI) share a single MCP server registry (`mcp.json`).
+
+This repo provides `./agent-tool.sh cfg 1mcp ...` commands to install and manage the gateway, plus templates for the registry under `cfg/templates/mcp/`.
+
+---
+
+## 中文说明
+
 1mcp 是一个 MCP (Model Context Protocol) 统一网关，允许多个 Agent CLI（Claude Code、Codex CLI、Gemini CLI）共享同一套 MCP servers 配置。
 
 ## 快速开始

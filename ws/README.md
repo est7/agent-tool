@@ -1,3 +1,13 @@
+# ws
+
+Workspace lifecycle helpers (`create/cleanup/list/status`) used by the root `agent-tool.sh` CLI.
+
+Core implementation lives in `ws/workspace.sh`.
+
+---
+
+## 中文说明
+
 模块：ws（workspace）
 
 用于任务工作区的创建/清理/列表/状态等功能。

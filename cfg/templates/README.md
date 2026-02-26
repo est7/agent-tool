@@ -1,8 +1,29 @@
+# Agent Home Templates (`$AGENT_HOME`)
+
+This directory contains templates that `./agent-tool.sh cfg init` installs into `$AGENT_HOME` (default: `~/.agents`).
+
+Key areas:
+
+- `mcp/`: `mcp.json` template for the `1mcp` gateway (MCP server registry).
+- `commands/`, `skills/`, `hooks/`, `agents/`: reusable assets for different Agent CLIs.
+- `rules/`, `rules-templates/`: reusable rule templates.
+
+Common environment variables referenced by templates:
+
+- `CONTEXT7_API_KEY`
+- `GITHUB_PAT`
+- `GOOGLE_DEVELOPER_KNOWLEDGE_API_KEY`
+- `ONEMCP_PORT` (optional; default `3050`)
+
+---
+
+## 中文说明
+
 # 统一配置目录 ($AGENT_HOME)
 
 这是个人的「Agent 配置单一真相（Single Source of Truth）」目录，用来集中管理：
 
-- 全局说明书：`AGENTS.md`（persona + 编码规则）
+- 全局规则：`AGENTS.md`（DoD + 工程规范）
 - 通用命令模板：`commands/`（Slash 命令 / prompts）
 - 可复用 Skills：`skills/`
 - MCP 统一配置：`mcp.json`（1mcp 网关配置）
@@ -116,7 +137,7 @@ $AGENT_HOME
     },
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp@latest", "--api-key", "YOUR_API_KEY"],
+      "args": ["-y", "@upstash/context7-mcp@latest", "--api-key", "${CONTEXT7_API_KEY}"],
       "disabled": false,
       "tags": ["core", "all", "search"]
     },
@@ -148,7 +169,16 @@ $AGENT_HOME
     "github": {
       "command": "docker",
       "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"],
-      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" },
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}" },
+      "disabled": false,
+      "tags": ["search", "all"]
+    },
+    "google-developer-knowledge": {
+      "type": "http",
+      "url": "https://developerknowledge.googleapis.com/mcp",
+      "headers": {
+        "X-Goog-Api-Key": "${GOOGLE_DEVELOPER_KNOWLEDGE_API_KEY}"
+      },
       "disabled": false,
       "tags": ["search", "all"]
     },
@@ -168,9 +198,9 @@ MCP servers 通过 tags 分类，支持在项目级别使用 preset 过滤：
 
 | Preset | Tags | 包含的 Servers |
 |--------|------|---------------|
-| `all` | 全部 | 7 个（默认；jetbrains 需手动启用） |
+| `all` | 全部 | 8 个（默认；jetbrains 需手动启用） |
 | `core` | core | sequential-thinking, context7, auggie-mcp |
-| `search` | search | context7, auggie-mcp, github |
+| `search` | search | context7, auggie-mcp, github, google-developer-knowledge |
 | `agent-cli` | agent-cli | claudecode/codex/gemini-cli-mcp-async |
 | `ide` | ide | jetbrains |
 
