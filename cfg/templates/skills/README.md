@@ -13,17 +13,22 @@ English summary: this directory contains skill templates shared across Claude Co
 | Skill | 用途 | 触发方式 |
 |-------|------|----------|
 | `analyzing-project-health` | 技术债务量化 + 多角色辩论，生成健康评分和改进路线图 | 自动 |
-| `android-dev-core` | Android 核心开发规则（MVI、Base 类、网络请求等） | 自动 |
-| `android-dev-extras` | Android 扩展模板（SmartRefreshLayout、TabLayout+VP2） | 自动 |
 | `codex-review` | 调用 Codex CLI 进行代码审核 | `/codex-review` |
 | `create-command` | 创建 slash command 指南 | 自动 |
 | `create-mcp` | 创建 MCP Server 指南（Python/Node） | 自动 |
 | `create-skill` | 创建 Skill 指南 | 自动 |
+| `developing-android-features` | Android 功能开发规范与架构模板 | 自动 |
 | `dual-ai-review` | 多 AI 交叉审查（Gemini + Codex） | 自动 |
+| `generating-android-ui` | 设计稿/前端代码 → Android XML 布局生成 | 自动 |
 | `github-release` | 从 CHANGELOG 发布 GitHub Release | `/github-release` |
+| `implementation-gates` | 非平凡任务的实现前门禁（简约/反抽象/测试优先/集成优先等） | 自动 |
 | `jetbrains-skill` | JetBrains IDE MCP 集成（索引、重构、Inspection） | 自动 |
+| `mcp-services` | MCP 服务的详细使用手册（按需加载） | 自动 |
+| `plan-code-workflow` | 非平凡任务的 Plan/Code 工作流（按需加载） | 自动 |
 | `prompt-engineering` | Prompt 工程最佳实践 | 自动 |
 | `say-hello` | Skills 管线可用性验证 | `/say-hello` |
+| `task-memo` | 任务记录与 memo 规范（按需加载） | 自动 |
+| `testing-tdd` | 测试与 TDD 工作流（按需加载） | 自动 |
 | `version-bump` | 版本号升级并提交 git | `/version-bump` |
 
 ## 按用途分类
@@ -38,8 +43,8 @@ English summary: this directory contains skill templates shared across Claude Co
 
 | Skill | 说明 |
 |-------|------|
-| `android-dev-core` | MVI 架构、Base 类体系、Adapter、网络请求规范 |
-| `android-dev-extras` | SmartRefreshLayout 刷新、TabLayout+ViewPager2 模板 |
+| `developing-android-features` | MVI 架构、Base 类体系、列表/分页、网络请求等规范 |
+| `generating-android-ui` | 从设计稿/截图/前端代码生成生产可用 XML 布局 |
 
 ### 代码审查
 
@@ -48,7 +53,7 @@ English summary: this directory contains skill templates shared across Claude Co
 | `codex-review` | 调用 Codex 命令行审核，自动收集变更上下文 |
 | `dual-ai-review` | Gemini + Codex 交叉验证，多视角分析 |
 
-### 元技能（创建 Agent 组件）
+### 元技能（创建 Agent 组件 / Prompt）
 
 | Skill | 说明 |
 |-------|------|
@@ -69,6 +74,16 @@ English summary: this directory contains skill templates shared across Claude Co
 | Skill | 说明 |
 |-------|------|
 | `jetbrains-skill` | IDE 索引搜索、代码检查、重构、运行配置 |
+
+### 规则与流程（按需加载）
+
+| Skill | 说明 |
+|-------|------|
+| `plan-code-workflow` | 非平凡任务的 Plan/Code 工作流（如何推进、何时切模式） |
+| `testing-tdd` | 严格的 Red-Green-Refactor 与测试真实性原则 |
+| `task-memo` | `docs/memo/` 的记录时机、路径与写法 |
+| `implementation-gates` | Phase -1 门禁清单与例外流程 |
+| `mcp-services` | MCP 每个服务的详细用法与组合模式 |
 
 ### 测试
 
