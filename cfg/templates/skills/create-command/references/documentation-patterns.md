@@ -716,7 +716,7 @@ MIT License - See [LICENSE](LICENSE).
 1. **Version everything**: Track what changed when
 2. **Deprecate gracefully**: Warn before removing features
 3. **Migration guides**: Help users upgrade
-4. **Remove obsolete docs**: Keep documentation aligned with current reality
+4. **Archive old docs**: Keep old versions accessible
 5. **Review regularly**: Ensure docs match reality
 
 ## Documentation Checklist
