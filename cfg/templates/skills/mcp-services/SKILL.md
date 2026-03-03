@@ -7,7 +7,7 @@ description: Detailed usage guides for MCP services (Sequential Thinking, Contex
 
 本文件是 MCP 的**全量**使用规范与手册，目标是把 MCP 相关规则集中在一个地方，避免分散与丢失信息。
 
-> 提示：`cfg/templates/rules/mcp.md` 只保留最小入口与约束；所有细节以本文件为准。
+> 提示：MCP 相关规则以本文件为**唯一真源**；不要在 rules 目录再维护一份重复的 `mcp.md`，避免漂移。
 
 ---
 

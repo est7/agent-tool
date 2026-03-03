@@ -489,6 +489,21 @@ ensure_dir "${AGENT_HOME}/rules"
     log_verbose "未找到 rules 模板目录: ${rules_template_dir}"
   fi
 
+  # 清理已废弃的模板 rules（避免在 $AGENT_HOME/rules 下残留旧文件）
+  # 注意：这里只删除明确废弃且由模板曾经管理过的文件，不做通用“同步删除”。
+  local deprecated_rules=("mcp.md")
+  for name in "${deprecated_rules[@]}"; do
+    local dest="${AGENT_HOME}/rules/${name}"
+    if [[ -e "${dest}" ]]; then
+      if $DRY_RUN; then
+        log_verbose "将删除已废弃 rules: ${name}"
+      else
+        rm -f "${dest}"
+        log_verbose "已删除已废弃 rules: ${name}"
+      fi
+    fi
+  done
+
 # 生成 1mcp 配置文件 mcp/mcp.json（从模板复制）
 
 ensure_dir "${AGENT_HOME}/mcp"

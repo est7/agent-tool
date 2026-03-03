@@ -6,7 +6,6 @@ Files:
 
 - `core.md`: general engineering principles and constraints.
 - `conventions.md`: language, git, and tooling conventions.
-- `mcp.md`: guidance on choosing and using MCP tools/services.
 - `jetbrains-mcp.md`: guidance for using the `jetbrains` MCP server (JetBrains IDE integration).
 - `comments.md`: project-wide commenting policy and guidance.
 
