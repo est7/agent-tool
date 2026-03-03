@@ -491,7 +491,7 @@ ensure_dir "${AGENT_HOME}/rules"
 
   # 清理已废弃的模板 rules（避免在 $AGENT_HOME/rules 下残留旧文件）
   # 注意：这里只删除明确废弃且由模板曾经管理过的文件，不做通用“同步删除”。
-  local deprecated_rules=("mcp.md")
+  local deprecated_rules=("mcp.md" "core-conventions.md" "core-testing-tdd.md" "core-task-memo.md")
   for name in "${deprecated_rules[@]}"; do
     local dest="${AGENT_HOME}/rules/${name}"
     if [[ -e "${dest}" ]]; then
