@@ -13,7 +13,7 @@
 
 ## Summary · Git & CLI
 
-* **Commit format**: `type: message` (type: `feat|fix|refactor|chore|docs|test`)
+* **Commit format**: follow Conventional Commits.
 * **Branch naming**: `feat/xxx` / `fix/xxx` / `chore/xxx`
 * Prefer `gh` CLI for GitHub interactions.
 * Do not proactively suggest history-rewriting commands unless user explicitly asks.
@@ -65,7 +65,7 @@ Use the project's existing formatter configuration.
 * Git / GitHub:
   * Do not proactively suggest history-rewriting commands (`git rebase`, `git reset --hard`, `git push --force`) unless the user explicitly asks.
   * Prefer `gh` CLI for GitHub interactions.
-* **Commit format**: `type: message` where type is `feat|fix|refactor|chore|docs|test`.
+* **Commit format**: follow Conventional Commits.
 * **Branch naming**: `feat/xxx` / `fix/xxx` / `chore/xxx`.
 
 > The confirmation rule above applies only to destructive or hard-to-revert operations. Pure code edits, syntax fixes, formatting, and small structural changes do not need extra confirmation.

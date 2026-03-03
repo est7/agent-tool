@@ -38,7 +38,7 @@
 
 ## Commit & Pull Request Guidelines
 
-- Commits follow a simple `type: message` format, where `type` is one of `feat|bugfix|refactor|chore|exp` (for example, `feat: add web build helper`).
+- Commit messages follow Conventional Commits (for example, `feat: add web build helper`).
 - Keep commits focused and incremental; prefer smaller, reviewable changes over large mixed refactors.
 - Pull requests should include: brief summary, motivation/context, key commands used for validation, and any screenshots or logs when behaviour changes.
 - Link related issues or tasks where applicable, and mention any follow‑up work (TODOs) in the PR description.
