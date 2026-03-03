@@ -40,6 +40,7 @@ Strategy:
 * When the user says "实现", "落地", "按方案执行", "开始写代码", "帮我写出来", etc.:
   * Treat this as explicit request for **Code mode**.
   * Switch immediately. Do not re-ask the same question or re-confirm the approach.
+  * For **moderate/complex** tasks: after switching to Code mode, the first deliverable is the **test design and Red phase** (and when applicable, BDD-style E2E scenarios) — not feature implementation.
 
 ### 4.3 Plan Mode (Analysis / Alignment)
 
@@ -121,4 +122,3 @@ For non-trivial tasks, structure your answer as:
 * When no significant missing info needs clarification, minimize unnecessary round-trips — deliver well-reasoned conclusions and implementation directly.
 
 ---
-

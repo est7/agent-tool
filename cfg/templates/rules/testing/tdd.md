@@ -47,11 +47,31 @@ Test priority order:
    * What real-world coverage is missing
    * Compensating strategy (e.g., additional E2E test or smoke verification)
 
-### 10.5 Deliverables
+### 10.5 Intelligent Routing (TDD vs BDD by Task Complexity)
+
+Unit tests cannot cover all behavior-level requirements (multi-step workflows, cross-service interactions, UI/CLI integration). For behavior that must hold end-to-end, introduce **realistic E2E** coverage with **BDD-style scenarios**.
+
+Routing rules:
+
+| Task type | Default testing route | Notes |
+|----------|------------------------|-------|
+| **trivial** | Verification commands / smoke checks | TDD optional |
+| **moderate** | TDD recommended (tests first) | Add integration tests when boundaries exist |
+| **complex** | TDD mandatory + integration-first | Add BDD-style E2E scenarios for behavior coverage |
+| **bug fix** | Always start with a failing test | Prefer the closest realistic boundary |
+
+BDD guidance (for complex behavior):
+
+* Write scenarios in **Given/When/Then** style.
+* Scenarios must be **reviewed by the user** before implementation (same as Red/Review gate).
+* Prefer E2E environments that are realistic and controllable (real DB/service instances when feasible).
+
+### 10.6 Deliverables
 
 For each implementation, testing deliverables include:
 
 * Tests (unit + integration/contract as appropriate)
+* BDD-style E2E scenarios when behavior cannot be fully covered by unit/integration tests
 * Runnable verification commands (or user-side reproduction steps + expected output)
 * Exception notes if any gate was skipped (with risk and compensating strategy)
 
