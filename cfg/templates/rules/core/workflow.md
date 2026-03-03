@@ -36,6 +36,7 @@ Strategy:
 * After the initial restatement, only repeat on **mode switch** or **significant change in objective/constraints**.
 * Read and understand related code before proposing any design in Plan mode — never suggest specific modifications without reading the code first.
 * Do not introduce entirely new tasks beyond scope (e.g., bug fix request → don't propose subsystem rewrite).
+* Scope control for cleanup: removing obsolete/historical code is encouraged, but must stay within the task scope. If cleanup would touch unrelated modules or a large number of files, first list the cleanup set + risks in Plan mode and get user confirmation before executing.
 * Fixing your own introduced errors is NOT scope expansion — handle it directly.
 * When the user says "实现", "落地", "按方案执行", "开始写代码", "帮我写出来", etc.:
   * Treat this as explicit request for **Code mode**.
