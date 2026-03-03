@@ -1,4 +1,4 @@
-# Core — Testing & TDD
+# Testing & TDD
 
 ---
 
@@ -56,4 +56,3 @@ For each implementation, testing deliverables include:
 * Exception notes if any gate was skipped (with risk and compensating strategy)
 
 ---
-

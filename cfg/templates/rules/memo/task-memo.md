@@ -1,4 +1,4 @@
-# Core — Task Memo (落盘)
+# Task Memo (落盘)
 
 ---
 
@@ -30,4 +30,3 @@ Create a memo when **any** of:
 Reference template: [`cfg/templates/spec/memo-template.md`](../spec/memo-template.md).
 
 ---
-

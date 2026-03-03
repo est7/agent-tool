@@ -458,40 +458,54 @@ ensure_dir "${AGENT_HOME}/rules"
   local rules_template_dir="${SCRIPT_DIR}/templates/rules"
 
   if [[ -d "${rules_template_dir}" ]]; then
-    shopt -s nullglob
-    for template in "${rules_template_dir}"/*.md; do
+    while IFS= read -r -d '' template; do
       local name
       name="$(basename "${template}")"
       if [[ "${name}" == "README.md" ]]; then
         continue
       fi
-      local dest="${AGENT_HOME}/rules/${name}"
+
+      local rel_path
+      rel_path="${template#${rules_template_dir}/}"
+
+      local dest="${AGENT_HOME}/rules/${rel_path}"
+      ensure_dir "$(dirname "${dest}")"
+
       if [[ ! -f "${dest}" ]]; then
         if $DRY_RUN; then
-          log_verbose "将从模板复制 rules: ${name}"
+          log_verbose "将从模板复制 rules: ${rel_path}"
         else
           cp "${template}" "${dest}"
-          log_verbose "已从模板复制 rules: ${name}"
+          log_verbose "已从模板复制 rules: ${rel_path}"
         fi
       elif $UPGRADE; then
         if $DRY_RUN; then
-          log_verbose "将更新 rules: ${name}"
+          log_verbose "将更新 rules: ${rel_path}"
         else
           cp "${template}" "${dest}"
-          log_verbose "已更新 rules: ${name}"
+          log_verbose "已更新 rules: ${rel_path}"
         fi
       else
-        log_verbose "rules 已存在，跳过: ${name}"
+        log_verbose "rules 已存在，跳过: ${rel_path}"
       fi
-    done
-    shopt -u nullglob
+    done < <(find "${rules_template_dir}" -type f -name "*.md" -print0)
   else
     log_verbose "未找到 rules 模板目录: ${rules_template_dir}"
   fi
 
   # 清理已废弃的模板 rules（避免在 $AGENT_HOME/rules 下残留旧文件）
   # 注意：这里只删除明确废弃且由模板曾经管理过的文件，不做通用“同步删除”。
-  local deprecated_rules=("mcp.md" "core-conventions.md" "core-testing-tdd.md" "core-task-memo.md")
+  local deprecated_rules=(
+    "mcp.md"
+    "core-conventions.md"
+    "core-testing-tdd.md"
+    "core-task-memo.md"
+    "core-reasoning.md"
+    "core-workflow.md"
+    "core-self-check.md"
+    "testing-tdd.md"
+    "task-memo.md"
+  )
   for name in "${deprecated_rules[@]}"; do
     local dest="${AGENT_HOME}/rules/${name}"
     if [[ -e "${dest}" ]]; then
