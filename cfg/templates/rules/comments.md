@@ -1,8 +1,3 @@
----
-description: Project-wide commenting policy — explain WHY the code is the way it is; avoid change-log comments.
-alwaysApply: true
----
-
 # Commenting Policy: Explain **Why**, Not **What**
 
 **Goal:** Comments should help a future maintainer understand intent and constraints months later—not narrate edits.

@@ -88,3 +88,7 @@ Each spec contains:
 1. **Read the spec first**: `cfg/templates/spec/agent-*-spec.md`
 2. Create/edit template following the spec format
 3. Run `./agent-tool.sh cfg refresh` to sync to `~/.agents/`
+
+## Guardrails
+
+- Do not modify files under `cfg/templates/skills/**/references/` unless the user explicitly asks to change those references. Treat them as on-demand support material, not always-on policy.

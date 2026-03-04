@@ -1,12 +1,22 @@
-# MCP Rules — MCP 工具使用规范
+---
+name: mcp-services
+description: Detailed usage guides for MCP services (Sequential Thinking, Context7, Async MCP, GitHub, Google Developer Knowledge, Codebase Retrieval) and multi-tool collaboration patterns. Use when you need guidance on how to use a specific MCP service or combine multiple MCP services for complex tasks.
+---
+
+# MCP 服务使用规范（全量）
+
+本文件是 MCP 的**全量**使用规范与手册，目标是把 MCP 相关规则集中在一个地方，避免分散与丢失信息。
+
+> 提示：MCP 相关规则以本文件为**唯一真源**；不要在 rules 目录再维护一份重复的 `mcp.md`，避免漂移。
 
 ---
 
 ## 1. 全局原则
-- **离线优先**: 能用本地工具完成的，不调用外部 MCP
-- **单轮单工具**: 每轮对话最多调用 1-2 个 MCP 服务
-- **最小必要**: 限制查询范围，避免过度数据捕获
-- **可追溯**: 引用外部信息时标注来源
+
+- **离线优先**：能用本地工具完成的，不调用外部 MCP
+- **单轮单工具**：每轮对话最多调用 1–2 个 MCP 服务（超过时必须说明收益与原因）
+- **最小必要**：限制查询范围，避免过度数据捕获
+- **可追溯**：引用外部信息时标注来源
 
 ---
 
@@ -15,19 +25,17 @@
 任务开始时，按以下流程判断是否使用 MCP 以及使用哪个：
 
 ```
-接收任务
+Task received
   │
-  ├─ 识别任务类型（代码理解 / 文档查询 / 仓库搜索 / 复杂规划 / 跨 Agent 协作）
+  ├─ Identify task type (code understanding / docs / repo search / complex planning / cross-agent collaboration)
   │
-  ├─ Agent 自带能力能否完成？
-  │    ├─ 能，且效率足够 → 直接用原生能力，不调用 MCP
-  │    └─ 不能，或 MCP 明显更优 → 进入工具选择
+  ├─ Can native tools complete it efficiently?
+  │    ├─ Yes → use native tools, skip MCP
+  │    └─ No  → select the most suitable MCP service
   │
-  ├─ 匹配最合适的 MCP 工具（参考第 4~5 章）
-  │
-  └─ 执行并监控
-       ├─ 正常完成 → 结束
-       └─ 异常 → 触发切换（见下方切换条件）
+  └─ Execute and monitor
+       ├─ Success → done
+       └─ Failure → trigger switch (see below)
 ```
 
 ### 2.1 切换触发条件
@@ -82,7 +90,7 @@
 - 纯信息查询（改用 context7 或 codebase-retrieval）
 
 **使用约束**：
-- 步骤上限 6-10 步，每步一句话描述
+- 步骤上限 6–10 步，每步一句话描述
 - 输出可执行计划，不暴露中间推理过程
 - 步骤间保持线性依赖，避免并行分支
 
@@ -245,7 +253,6 @@ Android (`developer.android.com`)、Firebase (`firebase.google.com`)、Google Cl
 - **网络依赖**：依赖 Google Cloud 在线服务，离线不可用
 - **推荐工作流**：先 `search_documents` 获取片段 → 片段不够详细时用 `get_document` 或 `batch_get_documents` 获取全文
 
-
 ---
 
 ## 5. Auggie-MCP codebase-retrieval 使用规范
@@ -313,7 +320,7 @@ Android (`developer.android.com`)、Firebase (`firebase.google.com`)、Google Cl
 
 ```
 github (search_repositories)  →  context7 / google-developer-knowledge  →  sequential-thinking
-   发现候选库                    查 API 文档（按产品归属选择）          权衡 pros/cons 做决策
+   discover candidates             query docs (by product)                    weigh pros/cons and decide
 ```
 
 **典型流程**：
@@ -326,7 +333,7 @@ github (search_repositories)  →  context7 / google-developer-knowledge  →  s
 
 ```
 codebase-retrieval  →  github (search_code)  →  context7 / google-developer-knowledge
-   理解本地架构          搜索类似项目的实现        查依赖库的文档（按产品归属选择）
+  understand local arch     search similar impls        query dependency docs
 ```
 
 **典型流程**：
@@ -338,20 +345,20 @@ codebase-retrieval  →  github (search_code)  →  context7 / google-developer-
 ### 6.3 复杂功能规划
 
 ```
-codebase-retrieval  →  sequential-thinking  →  async-mcp (可选)
-   勘查现有代码           分步规划方案              委派子任务给其他 Agent
+codebase-retrieval  →  sequential-thinking  →  async-mcp (optional)
+   survey existing code        plan steps           delegate subtasks
 ```
 
 **典型流程**：
 1. `codebase-retrieval`: 查询涉及修改的所有类、函数、依赖关系
-2. `sequential-thinking`: 将需求拆解为 6-10 个可执行步骤
+2. `sequential-thinking`: 将需求拆解为 6–10 个可执行步骤
 3. `async-mcp`（可选）: 将独立子任务委派给其他 Agent 并行处理
 
 ### 6.4 Bug 排查
 
 ```
 codebase-retrieval  →  github (search_issues)  →  context7 / google-developer-knowledge
-   定位问题代码            搜索已知 Issue            查 API 正确用法（按产品归属选择）
+   locate problem code          search known issues            query correct API usage
 ```
 
 **典型流程**：
