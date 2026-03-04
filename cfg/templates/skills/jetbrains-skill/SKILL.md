@@ -44,6 +44,12 @@ This increases automation power but also increases risk. Require explicit user c
 - Run a config (wait for completion): `execute_run_configuration`
 - Run a terminal command in IDE: `execute_terminal_command` (may require confirmation; output is capped)
 
+## When NOT to use JetBrains MCP
+
+- If JetBrains IDE is not open with the target project, or the MCP plugin is not running.
+- For bulk text search/replace or simple edits: prefer CLI tools like `rg` and direct edits.
+- For IDE-irrelevant tasks (docs updates, shell scripts, config cleanup): prefer the repo/CLI workflow.
+
 ## Constraints (avoid common mistakes)
 
 - Always pass `projectPath` when known to avoid ambiguity.
@@ -54,11 +60,11 @@ This increases automation power but also increases risk. Require explicit user c
 
 ### Safety & confirmation rules
 
-**Requires user confirmation** (multi-file or destructive impact):
-- Rename / Move / Extract / Reformat (affects multiple files)
-- Quick Fix batch apply
+**Requires user confirmation** (destructive or hard-to-revert impact):
+- Batch apply Quick Fixes / auto-fixes
 - Modify Run Configuration / Gradle / build settings
-- `execute_terminal_command` (any command)
+- Enabling/disabling Brave Mode
+- `execute_terminal_command` (any potentially destructive command; ask if unsure)
 
 **No confirmation needed** (read-only operations):
 - Open file in editor, jump to definition
@@ -66,6 +72,13 @@ This increases automation power but also increases risk. Require explicit user c
 - View Inspection report (without auto-fix)
 - Search files (text/regex/name/glob)
 - List modules, dependencies, repositories, run configurations
+
+## Fallback when unavailable
+
+When JetBrains MCP is unavailable (IDE not open / plugin disabled / endpoint unreachable):
+- Code understanding: prefer `codebase-retrieval` (semantic) + `rg` (exact).
+- Refactoring: use small, safe diffs; add tests/build verification as needed.
+- Running: use repo-native commands (Gradle, pnpm/npm, pytest, etc.), not IDE Run Configurations.
 
 ## Recommended high-value patterns
 

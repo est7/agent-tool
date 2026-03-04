@@ -47,6 +47,12 @@ IDE 支持开启 “无需确认即可运行 shell 命令或运行配置（Brave
 - 运行 run configuration 并等待结束：`execute_run_configuration`
 - 在 IDE 集成终端执行命令：`execute_terminal_command`（默认可能需要确认；输出有行数上限）
 
+## 何时不使用 JetBrains MCP
+
+- JetBrains IDE 未打开目标项目，或 MCP 插件未启用/未运行。
+- 批量文本查找/替换、简单编辑：优先用 `rg` 等 CLI 工具与直接编辑。
+- 与 IDE 无关的任务（文档更新、脚本修改、配置整理）：优先走仓库自带命令/CLI 工作流。
+
 ## 强制约束（避免踩坑）
 
 - `projectPath`：如已知，始终传入，减少”选错项目”的歧义。
@@ -57,11 +63,11 @@ IDE 支持开启 “无需确认即可运行 shell 命令或运行配置（Brave
 
 ### 安全与确认规则
 
-**需要用户确认**（影响多文件或有破坏性）：
-- Rename / Move / Extract / Reformat（跨文件影响）
-- Quick Fix 批量应用
+**需要用户确认**（破坏性 / 难回滚影响）：
+- Quick Fix 批量应用 / 自动修复
 - 修改 Run Configuration / Gradle / 构建设置
-- `execute_terminal_command`（任何命令）
+- 开启/关闭 Brave Mode
+- `execute_terminal_command`（任何可能导致破坏的命令；不确定就先问）
 
 **无需确认**（只读操作）：
 - 打开文件、跳转到定义
@@ -69,6 +75,13 @@ IDE 支持开启 “无需确认即可运行 shell 命令或运行配置（Brave
 - 查看 Inspection 报告（不自动修复）
 - 搜索文件（文本/正则/文件名/glob）
 - 列出模块、依赖、仓库、运行配置
+
+## 降级策略（不可用时）
+
+当 JetBrains MCP 不可用（IDE 未开 / 插件未启用 / 端口不可达）：
+- **代码理解**：优先 `codebase-retrieval`（语义检索）+ `rg`（精确字符串搜索）。
+- **重构**：改用小步安全改动（最小 diff），必要时补测试/构建验证。
+- **运行**：使用仓库自带命令（Gradle、pnpm/npm、pytest 等），不要依赖 IDE Run Configuration。
 
 ## 推荐用法（高价值模式）
 

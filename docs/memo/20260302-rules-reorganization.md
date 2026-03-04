@@ -21,11 +21,10 @@ Goals:
 - `core/reasoning.md` — reasoning framework + quality evaluation
 - `core/workflow.md` — task complexity routing + Plan/Code workflow + answer/style conventions
 - `core/self-check.md` — self-check + self-fix protocol
-- `conventions.md` — language + git + tools & environment (includes a short summary section)
-- `testing/tdd.md` — testing & strict TDD gate
+- `conventions.md` — language + git + tools & environment (includes short commenting guidance)
+- `testing/tdd.md` — lightweight trigger; detailed playbook lives in the `testing-tdd` Skill (on-demand)
 - `memo/task-memo.md` — task memo / 落盘规范
-- `comments.md` — commenting policy
-- `jetbrains-mcp.md` — JetBrains MCP guidance
+- JetBrains MCP guidance moved to the `jetbrains-skill` Skill (on-demand)
 
 ### 1.2 Skills (`cfg/templates/skills/`)
 

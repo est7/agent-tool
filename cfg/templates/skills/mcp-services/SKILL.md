@@ -196,7 +196,7 @@ Task received
 
 通过 SSE 协议连接本地运行的 JetBrains IDE（IntelliJ IDEA、Android Studio、WebStorm 等），端口固定为 64343。
 
-决策规则与降级策略见 `jetbrains-mcp.md`；执行方法见 `jetbrains-skill`。
+决策规则、降级策略与执行方法见 `jetbrains-skill`（其中包含“何时不使用/降级策略”部分）。
 
 **适用场景**：
 - 在 IDE 中执行代码导航（跳转到定义、查找用法、查看类层次）
@@ -384,6 +384,6 @@ codebase-retrieval  →  github (search_issues)  →  context7 / google-develope
 | `google-developer-knowledge` | 改用 `context7`（如覆盖范围有交集）或 Agent 自身知识 + `WebSearch` |
 | `github` | 改用 `gh` CLI（`gh api`、`gh search`、`gh pr`）|
 | `auggie-mcp` (codebase-retrieval) | 改用 `grep` + 文件读取 + IDE 索引搜索 |
-| `jetbrains` | 见 `jetbrains-mcp.md` §5 降级策略 |
+| `jetbrains` | 见 `jetbrains-skill` 的“降级策略 / Fallback when unavailable” |
 | `sequential-thinking` | Agent 内部推理（不使用外部工具） |
 | `async-mcp`（跨 Agent） | 当前 Agent 独立完成任务 |

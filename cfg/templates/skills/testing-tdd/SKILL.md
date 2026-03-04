@@ -29,7 +29,7 @@ description: TDD workflow and testing strategy for code implementation. Use when
 Strict Red-Green-Refactor cycle:
 
 1. **Red**: Write tests first that define expected behavior and boundary conditions.
-2. **Review**: Tests must be reviewed by the user before proceeding.
+2. **Review**: For **complex / high-risk** tasks, tests must be reviewed by the user before proceeding (moderate tasks: review is recommended).
 3. **Confirm Red**: Verify tests fail with current implementation (run or provide commands for user to confirm).
 4. **Green**: Write minimum implementation to make tests pass.
 5. **Refactor**: Clean up without changing behavior.
@@ -56,10 +56,20 @@ Test priority order:
 
 ---
 
+## BDD Fallback (E2E unavailable)
+
+When the runtime cannot launch E2E tests (no browser automation, no real service instances, no CI):
+* **complex** tasks → produce Gherkin `.feature` scenarios (mandatory)
+* **moderate** tasks with cross-boundary behavior → Gherkin `.feature` recommended
+* `.feature` files use standard Gherkin syntax (`Feature` / `Scenario` / `Given` / `When` / `Then`) and serve as executable specs for later Cucumber/Behave wiring
+
+---
+
 ## Deliverables
 
 For each implementation, testing deliverables include:
 
 * Tests (unit + integration/contract as appropriate)
+* Gherkin `.feature` scenarios when E2E is unavailable or behavior needs end-to-end coverage
 * Runnable verification commands (or user-side reproduction steps + expected output)
 * Exception notes if any gate was skipped (with risk and compensating strategy)

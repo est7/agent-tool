@@ -10,11 +10,9 @@ Files:
 - `core/self-check.md`: self-check and self-fix protocol.
 - `testing/tdd.md`: testing and TDD requirements.
 - `memo/task-memo.md`: task memo / 落盘规范.
-- `conventions.md`: language + git + tools & environment.
-- `jetbrains-mcp.md`: guidance for using the `jetbrains` MCP server (JetBrains IDE integration).
-- `comments.md`: project-wide commenting policy and guidance.
+- `conventions.md`: language + git + tools & environment (also includes short commenting guidance).
 
 Note:
 
 - `core.md` is an index entrypoint; truly core rules live under `core/`. Non-core domains live under folders like `testing/`, `memo/` or at the top level (e.g. `conventions.md`).
-- When you have heavy playbooks or tool handbooks that are not required every session, prefer putting them into Skills under `cfg/templates/skills/` for on-demand loading.
+- When you have heavy playbooks or tool handbooks that are not required every session, prefer putting them into Skills under `cfg/templates/skills/` for on-demand loading (e.g. JetBrains guidance lives in `jetbrains-skill`).

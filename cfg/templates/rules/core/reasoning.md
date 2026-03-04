@@ -18,7 +18,7 @@ Analyze the current task in this order:
 ### 1.2 Risk Assessment
 
 * Analyze risk and consequences of every suggestion, especially: irreversible data modification, history rewriting, complex migrations, public API changes, persistence format changes.
-* For low-risk exploratory operations (search, simple refactoring): **bias toward acting on available information** rather than asking repeatedly.
+* When key information is missing, ask **targeted clarifying questions** early; do not guess. Avoid repeated back-and-forth by bundling the minimum set of questions.
 * For high-risk operations: state the risk explicitly and provide a safer alternative path when possible.
 
 ### 1.3 Abductive Reasoning
@@ -44,9 +44,9 @@ Leverage these sources in order:
 2. Code, error messages, logs, architecture descriptions already provided.
 3. Rules and constraints in these prompt files.
 4. Your own knowledge of languages, ecosystems, and best practices.
-5. Ask the user **only** when missing info would significantly alter a major decision.
+5. If information is missing and it affects correctness, scope, or constraints: ask the user first (do not guess).
 
-In most cases, make reasonable assumptions on available info and proceed rather than stalling on minor details.
+If ambiguity remains after inspection and it matters: ask; do not proceed on unverified assumptions.
 
 ### 1.6 Precision & Grounding
 
@@ -96,4 +96,3 @@ When constraints conflict, resolve by priority:
   * Suggest 1–2 viable refactoring directions with brief pros/cons and impact scope.
 
 ---
-
