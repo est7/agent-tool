@@ -123,3 +123,14 @@ For non-trivial tasks, structure your answer as:
 * When no significant missing info needs clarification, minimize unnecessary round-trips — deliver well-reasoned conclusions and implementation directly.
 
 ---
+
+## C/S Layering
+
+Error cost determines discipline.
+
+- **S (Stable Logic)**: Logic that affects real outcomes (validation, state machines, permissions, calculations). Change sparingly, expose atomic APIs, and every change must have a regression test.
+- **C (Presentation Layer)**: Logic that only affects perceived experience (UI, layout, interaction). Iterate quickly; unit tests are not required, but every delivery must include verification steps.
+
+When classification is disputed: affects data/security/billing → S; only affects rendering/animation → C.
+
+S must not depend on C. Do not “rewrite S” as a drive-by change in a “UI-only” task.
