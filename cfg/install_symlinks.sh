@@ -393,6 +393,9 @@ ensure_dir "${AGENT_HOME}/rules"
     for template in "${commands_template_dir}"/*.md; do
       local name
       name="$(basename "${template}")"
+      if [[ "${name}" == "README.md" ]]; then
+        continue
+      fi
       local dest="${AGENT_HOME}/commands/shared/${name}"
       if [[ ! -f "${dest}" ]]; then
         if $DRY_RUN; then
@@ -428,6 +431,9 @@ ensure_dir "${AGENT_HOME}/rules"
     for template in "${output_styles_template_dir}"/*.md; do
       local name
       name="$(basename "${template}")"
+      if [[ "${name}" == "README.md" ]]; then
+        continue
+      fi
       local dest="${AGENT_HOME}/output-styles/shared/${name}"
       if [[ ! -f "${dest}" ]]; then
         if $DRY_RUN; then
