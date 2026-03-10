@@ -12,13 +12,32 @@ context: fork
 
 Converts Figma / design tool exports into production-grade Android XML layouts + functional PRD.
 
+> [ABSOLUTE BAN] This skill must never generate Kotlin/Java files (`Activity`, `Fragment`, `Adapter`, or any other logic class). Even when the user says "implement this feature", the deliverable is limited to XML layouts plus the matching PRD/interaction notes.
+
 **Boundary**: XML layouts + PRD only. No Kotlin/Java code, no Compose, no implementation suggestions.
 
 ---
 
 ## Workflow
 
-Execute these three phases **strictly in order**. Do not skip or merge phases.
+Execute these phases **strictly in order**. Do not skip, merge, or reorder them.
+
+### Phase 0: Project Convention Discovery
+
+Before interpreting the page structure, discover the target project's conventions first. This phase is mandatory for both `0-to-1` and `1-to-2` work.
+
+You MUST inspect the target module / existing page context and lock down these four items:
+
+1. **Layout directory convention**: use `find` to locate the real layout scope for the module, including non-standard paths such as `res/layouts/main/layout/`
+2. **Shared title bar component**: search for `TitleBarView` or the module's equivalent shared header widget before planning a custom title bar
+3. **Reusable resources**: inspect existing colors, dimens, drawables, and common icons before deciding to create new ones
+4. **Naming conventions**: inspect existing layout file names, `item_*.xml` names, and common ID prefixes used in the module
+
+Output of this phase is a short internal checklist for yourself:
+- Which layout directory will receive new XML files
+- Whether `TitleBarView` (or an equivalent shared title bar) is mandatory
+- Which resources must be reused
+- Which naming pattern the new files and IDs must follow
 
 ### Phase 1: Mode Detection & Input Collection
 
@@ -34,12 +53,18 @@ Ask the user which mode applies:
 In 0-to-1 mode, there is no existing file to anchor to. You do NOT know which module or package the new page belongs to. You MUST use AskUserQuestion to ask:
 
 1. Target module (e.g., `app`, `feature-order`, `module-home`)
-2. Target resource directory (e.g., `app/src/main/res/layout/`)
-3. Page name hint (e.g., "reward list", "message detail") — used for file naming
+2. Page name hint (e.g., "reward list", "message detail") — used for file naming
 
-Do NOT guess or assume the module path. Do NOT write files until this is confirmed.
+After the target module is confirmed, you MUST inspect that module with `find` before generating any XML:
 
-**1-to-2 mode**: The user provides the existing file path, so the target location is already known.
+1. Search for existing layout resource directories in the target module
+2. Follow the module's existing resource scoping convention exactly
+3. If the module uses a non-standard path such as `res/layouts/main/layout/`, write new files there
+4. If the results are ambiguous or no layout directory exists yet, ask the user to confirm the exact target directory
+
+Do NOT guess or assume the module path. Do NOT default to `res/layout/`. Do NOT write files until the layout directory convention is verified.
+
+**1-to-2 mode**: The user provides the existing file path, so the target location is already known. Any new `item_*.xml` or `view_*.xml` files must follow the same module-local layout directory convention as the existing page.
 
 **Critical: Understanding the frontend code**
 
@@ -64,6 +89,8 @@ Do NOT use it for:
 - Current layout hierarchy and View IDs
 - Which regions are fixed vs scrollable
 - Naming patterns already in use (ID prefixes, resource naming)
+
+Do not start ASCII layout confirmation until Phase 0 and Phase 1 are both complete.
 
 ### Phase 2: ASCII Layout Confirmation (MANDATORY)
 
@@ -93,11 +120,11 @@ Before generating any XML, draw an ASCII diagram using box-drawing characters th
 ```
 ┌─ fragment_reward_list.xml ──────────────────────────────┐
 │                                                          │
-│  ┌─ ConstraintLayout [cl_header] ────── [FIXED] ──────┐ │
-│  │  ImageView [iv_back]    TextView [tv_title]         │ │
+│  ┌─ TitleBarView [titleBar] ───────── [FIXED] ────────┐ │
+│  │  Standard child-page title bar                     │ │
 │  └─────────────────────────────────────────────────────┘ │
 │                                                          │
-│  ┌─ LinearLayout [ll_notice] ─── [FIXED] [GONE] ──────┐ │
+│  ┌─ ConstraintLayout [cl_notice] ─ [FIXED] [GONE] ───┐ │
 │  │  ImageView [iv_notice_icon]  TextView [tv_notice]   │ │
 │  │  Condition: show when hasNotice == true              │ │
 │  └─────────────────────────────────────────────────────┘ │
@@ -121,14 +148,29 @@ Before generating any XML, draw an ASCII diagram using box-drawing characters th
 1. Present the ASCII diagram
 2. Ask: "Please confirm the layout structure, or describe what changes are needed."
 3. If user requests changes → redraw and re-confirm
-4. Only after explicit user approval → proceed to Phase 3
+4. Only after explicit user approval → proceed to the Pre-Generate Checklist
+
+### Pre-Generate Checklist (BLOCKING)
+
+After the user confirms the ASCII layout and before writing any XML, verify all of the following:
+
+- `TitleBarView` check: if the page uses a standard `icon-title-text-icon` child-page header and the project contains `com.androidtool.common.widget.TitleBarView` (or equivalent shared title bar), the layout uses that shared component instead of a hand-built header
+- Flattening check: no meaningless nested `LinearLayout` / `FrameLayout` containers remain inside `ConstraintLayout`
+- RecyclerView preview check: every `RecyclerView` includes `tools:listitem="@layout/item_xxx"` and preferably `tools:itemCount="3"`
+- Resource reuse check: colors, dimens, drawables, and icons have been matched against existing project resources before creating new ones
+- Layout directory check: the real module layout directory has been confirmed with `find`; nothing will be written to a guessed default path
+- Boundary check: the output remains XML + PRD only, with no Kotlin/Java generation
+
+If any item fails, stop and fix the plan first. Do not proceed to XML generation with unresolved checklist failures.
 
 ### Phase 3: XML Generation + PRD
 
-1. Read `references/project-resources.md` for existing project resources (drawables, shapes, icons, colors). **Reuse existing resources whenever possible** — do not create a new shape/icon/color if an equivalent already exists in the project.
-2. Read `references/layout-spec.md` for layout rules, unit conversion, resource extraction, naming conventions, and preview attributes.
-3. Read `references/output-format.md` for the required output structure.
-4. Generate output following the format spec exactly.
+1. Read `references/layout-spec.md` first. Apply its mandatory rules for title bar reuse, absolute ConstraintLayout flattening, RecyclerView preview attributes, and resource scoping.
+2. Search the project for reusable title bar components before drawing a custom header. If `com.androidtool.common.widget.TitleBarView` exists, all standard `icon-title-text-icon` child-page headers MUST use it instead of manually assembling back icon + title text in XML.
+3. Verify the actual target layout directory with `find` before writing any XML. Never assume `res/layout/`.
+4. Read `references/project-resources.md` for existing project resources (drawables, shapes, icons, colors). **Reuse existing resources whenever possible** — do not create a new shape/icon/color if an equivalent already exists in the project.
+5. Read `references/output-format.md` for the required output structure.
+6. Generate output following the format spec exactly.
 
 #### 1-to-2 mode specifics
 
@@ -148,8 +190,8 @@ This skill runs in `context: fork`. The forked agent handles all heavy work (rea
 ```
 ## Generated Files
 
-- `res/layout/fragment_xxx.xml` — Main page layout
-- `res/layout/item_xxx.xml` — List item layout
+- `<discovered-layout-dir>/fragment_xxx.xml` — Main page layout
+- `<discovered-layout-dir>/item_xxx.xml` — List item layout
 - `res/drawable/shape_xxx.xml` — Background shape
 - `res/values/colors.xml` — (snippet appended)
 - `res/values/dimens.xml` — (snippet appended)
@@ -176,6 +218,8 @@ Loading → Normal → Empty → Error (with retry)
 
 **Rules**:
 - Write all XML files to disk using the Write tool during Phase 3
+- Use the real layout directory discovered from the target module; never hardcode `res/layout/`
 - The return summary must be concise — no XML code, no full PRD prose
 - Include every generated file path so the user can read them directly
 - PRD summary covers structure + interactions + states in bullet points only
+- Never generate or propose Kotlin/Java implementation files in this skill

@@ -27,6 +27,6 @@ Create a memo when **any** of:
 * **Must have conclusion** — every memo must include `## Conclusion & Deliverables` with clear deliverable results.
 * **One topic per document** — separate tasks into separate files.
 
-Reference template: [`cfg/templates/spec/memo-template.md`](../spec/memo-template.md).
+Reference template: [`cfg/templates/skills/task-memo/references/memo-template.md`](../../skills/task-memo/references/memo-template.md).
 
 ---

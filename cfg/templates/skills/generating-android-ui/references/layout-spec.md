@@ -9,9 +9,9 @@ constraint rules, unit conversion, resource extraction, naming, and preview attr
 
 | Priority | Layout | Use case |
 |:---------|:-------|:---------|
-| 1 | ConstraintLayout | Root layout and complex containers |
-| 2 | LinearLayout | Simple linear arrangements (badge rows, icon-text combos) |
-| 3 | FrameLayout | Simple overlays (image + mask) |
+| 1 | ConstraintLayout | Default root layout and default choice for content regions; use it to flatten hierarchy |
+| 2 | LinearLayout | Only for truly simple standalone linear regions, or when the whole container is intrinsically linear and not nested inside another `ConstraintLayout` |
+| 3 | FrameLayout | Only for overlays, background decoration, or rare special grouping |
 | Forbidden | RelativeLayout | Never use |
 
 ---
@@ -81,9 +81,28 @@ Every child View must satisfy:
 - At least one vertical constraint (Top or Bottom)
 - For stretching: use `0dp` + constraints. **Never use `match_parent`**
 
+### Core Principle: Absolute Flattening
+
+The purpose of `ConstraintLayout` is to thin the view hierarchy. Treat it as a flattening tool, not as a drop-in replacement for `RelativeLayout`.
+
+1. Content regions should remain a single flat layer whenever possible. Do not add nested containers unless they are truly required by `ScrollView`, `CardView`, background decoration, or another unavoidable structural need.
+2. Inside a `ConstraintLayout`, do not nest meaningless `LinearLayout` or `FrameLayout` containers just to stack views horizontally or vertically.
+3. For simple alignment and visibility control, prefer chains, `Group`, `Layer`, `Barrier`, guidelines, and direct anchor relationships between sibling views.
+4. If a section needs expand/collapse or "height opens" behavior, implement it by changing constraints / anchors between real content views. Do not wrap the content in an extra `wrap_content` container only to fake the animation.
+
 ---
 
-## 5. Unit Conversion
+## 5. Title Bar Standardization
+
+Before generating a page header, search the project for reusable title bar components.
+
+- If `com.androidtool.common.widget.TitleBarView` exists, every standard `icon-title-text-icon` child-page title bar MUST use it.
+- Do not manually compose a standard title bar with `ImageView` + `TextView` in XML when `TitleBarView` (or the project's equivalent shared title component) is available.
+- Only build a custom header when the design is clearly non-standard or no reusable project component exists.
+
+---
+
+## 6. Unit Conversion
 
 | CSS | Android | Notes |
 |:----|:--------|:------|
@@ -95,38 +114,50 @@ Every child View must satisfy:
 
 ---
 
-## 6. RTL Compatibility
+## 7. RTL Compatibility
 
 - Use `marginStart` / `marginEnd` / `paddingStart` / `paddingEnd`
 - **Never** use `marginLeft` / `marginRight` / `paddingLeft` / `paddingRight`
 
 ---
 
-## 7. Resource Extraction
+## 8. Resource Extraction
 
-### 7.1 colors.xml
+### 8.1 colors.xml
 
 Extract colors that appear 2+ times. Use **semantic names**:
 - `color_primary`, `color_text_secondary`, `color_bg_card`
 - Never name by hex value (e.g., `color_5259F7` is forbidden)
 
-### 7.2 dimens.xml
+### 8.2 dimens.xml
 
 Extract dimensions that appear 2+ times:
 - Spacing: `spacing_8`, `spacing_16`, `padding_screen`
 - Corner radius: `corner_card`, `corner_button`
 - Text size: `text_size_body`, `text_size_title`
 
-### 7.3 Drawable Shapes
+### 8.3 Drawable Shapes
 
 Extract rounded corners / gradients / borders into separate files:
 - `shape_card_bg.xml`, `shape_btn_primary.xml`
 
 ---
 
-## 8. Naming Conventions
+## 9. Resource Scoping
 
-### 8.1 File Naming
+Before writing any new XML file, determine the real layout directory convention of the target module.
+
+1. You MUST use `find` to inspect the target module for existing layout directories.
+2. Follow the module-local convention exactly, including non-standard scopes such as `res/layouts/main/layout/`.
+3. New page layouts, item layouts, and shared view layouts must be written into that discovered scope.
+4. If multiple candidate directories exist or nothing matches, stop and ask the user to confirm the target directory.
+5. Never assume `res/layout/` by default.
+
+---
+
+## 10. Naming Conventions
+
+### 10.1 File Naming
 
 | Type | Format | Example |
 |:-----|:-------|:--------|
@@ -134,7 +165,7 @@ Extract rounded corners / gradients / borders into separate files:
 | List item | `item_xxx.xml` | `item_reward_card.xml` |
 | Shared component | `view_xxx.xml` | `view_notice_bar.xml` |
 
-### 8.2 View ID Naming
+### 10.2 View ID Naming
 
 | Widget | Prefix | Example |
 |:-------|:-------|:--------|
@@ -147,7 +178,7 @@ Extract rounded corners / gradients / borders into separate files:
 
 ---
 
-## 9. Preview Attributes (Required)
+## 11. Preview Attributes (Required)
 
 Every layout must include tools namespace attributes for Android Studio preview:
 
@@ -161,3 +192,9 @@ tools:itemCount="3"
 tools:context=".feature.XxxFragment"
 tools:visibility="visible"  <!-- pair with android:visibility="gone" -->
 ```
+
+### RecyclerView Preview Rules
+
+- Every `RecyclerView` MUST include `tools:listitem="@layout/item_xxx"`.
+- `tools:itemCount="3"` is the default recommendation unless a different preview count better reflects the design.
+- A list without preview attributes is incomplete. Do not leave Android Studio preview as a blank white list.

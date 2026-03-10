@@ -28,4 +28,4 @@ Create a memo when **any** of:
 
 ## Reference
 
-Template: `cfg/templates/spec/memo-template.md`
+Template: `references/memo-template.md`

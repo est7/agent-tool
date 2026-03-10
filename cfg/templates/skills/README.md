@@ -26,7 +26,6 @@ English summary: this directory contains skill templates shared across Claude Co
 | `mcp-services` | MCP 服务的详细使用手册（按需加载） | 自动 |
 | `plan-code-workflow` | 非平凡任务的 Plan/Code 工作流（按需加载） | 自动 |
 | `prompt-engineering` | Prompt 工程最佳实践 | 自动 |
-| `say-hello` | Skills 管线可用性验证 | `/say-hello` |
 | `task-memo` | 任务记录与 memo 规范（按需加载） | 自动 |
 | `testing-tdd` | 测试与 TDD 工作流（按需加载） | 自动 |
 | `version-bump` | 版本号升级并提交 git | `/version-bump` |
@@ -84,12 +83,6 @@ English summary: this directory contains skill templates shared across Claude Co
 | `task-memo` | `docs/memo/` 的记录时机、路径与写法 |
 | `implementation-gates` | Phase -1 门禁清单与例外流程 |
 | `mcp-services` | MCP 每个服务的详细用法与组合模式 |
-
-### 测试
-
-| Skill | 说明 |
-|-------|------|
-| `say-hello` | 最小可运行示例，验证 Skill 管线是否正常 |
 
 ## 创建新 Skill
 

@@ -237,7 +237,7 @@ $AGENT_HOME
 │   └── logs/                 # 1mcp 日志（由 start 创建）
 ├── skills/
 │   ├── shared/               # Claude / Codex 共享 Skill
-│   │   └── sayhello/         # 示例 Skill：验证管线用
+│   │   └── task-memo/        # 示例 Skill：任务记录规范
 │   ├── claude-only/          # 仅 Claude 使用
 │   └── codex-only/           # 仅 Codex 使用
 ├── commands/

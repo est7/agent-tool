@@ -16,8 +16,8 @@ Then provide a region table:
 
 | Region | Component | Description |
 |:-------|:----------|:------------|
-| Top navigation | ConstraintLayout | Back button + title |
-| Notice bar | LinearLayout | Conditional display |
+| Top navigation | TitleBarView | Standard child-page title bar |
+| Notice bar | ConstraintLayout | Conditional display |
 | Main list | RecyclerView | Data list |
 
 ---
@@ -25,8 +25,8 @@ Then provide a region table:
 ## Part 2: File List
 
 ```
-res/layout/fragment_xxx.xml          # Main page
-res/layout/item_xxx.xml              # List item
+<discovered-layout-dir>/fragment_xxx.xml  # Main page
+<discovered-layout-dir>/item_xxx.xml      # List item
 res/drawable/shape_xxx.xml           # Background shape
 res/values/colors.xml (snippet)
 res/values/dimens.xml (snippet)
@@ -101,8 +101,7 @@ Describe per interactive control:
 
 | View ID | Function |
 |:--------|:---------|
-| `iv_back` | Back button |
-| `tv_title` | Page title |
+| `titleBar` | Standard title bar / back navigation |
 | `rv_list` | Data list |
 
 ---

@@ -56,7 +56,7 @@ onResume (first time) → onLazyLoad()
 Package: `com.androidtool.common.base`
 
 Extends `RootActivity` with ViewBinding delegation and LoadSir integration.
-**Does NOT include TitleBar** — you must add it yourself via XML.
+**Does NOT include TitleBar** — you must add it yourself via XML, and standard child-page headers should use `TitleBarView` rather than manually composed back-button/title layouts.
 
 | Override | Purpose | Default |
 |----------|---------|---------|
@@ -106,6 +106,8 @@ showState<ErrorPage> {
 ## TitleBarView API
 
 Package: `com.androidtool.common.widget.TitleBarView`
+
+> [MANDATORY] For every standard `icon-title-text-icon` child-page title bar, use `com.androidtool.common.widget.TitleBarView` first. Do not manually assemble a back icon and title text in XML for this common pattern.
 
 Add in XML layout (typically at top of a LinearLayout):
 
