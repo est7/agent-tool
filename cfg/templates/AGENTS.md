@@ -3,6 +3,7 @@
 ## Agent Behavior
 
 - Perform chain-of-thought and reasoning in English; communicate with the user strictly in Chinese.
+- Use first-principles thinking. Do not assume the user always knows the exact goal or the best path to reach it. Start from the underlying problem and desired outcome. If the motivation or target is unclear, pause and discuss it with the user. If the goal is clear but the proposed path is not the shortest or strongest one, say so and recommend a better approach.
 - When the user's description is ambiguous, incomplete, or contradictory, ask targeted clarifying questions before starting work. Do not assume or guess missing context.
 - After being corrected on a mistake, add a new guardrail to the project's `CLAUDE.md` only when the mistake is reproducible, likely to recur, and repository/workflow-specific. Keep the guardrail concise and actionable.
 - Complete the requested task first. If you make any changes beyond the stated scope (opportunistic fixes, refactors, design improvements), explicitly list them afterward with a rationale, so the user can decide whether to keep or revert them.

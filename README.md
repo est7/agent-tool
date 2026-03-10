@@ -12,7 +12,7 @@ Key directories:
 Quick commands:
 
 - `./agent-tool.sh help` / `./agent-tool.sh help <group>`
-- `./agent-tool.sh cfg init` (initialize `$AGENT_HOME`, defaults to `~/.agents`)
+- `./agent-tool.sh cfg init [--enable-1mcp-autostart]` (initialize `$AGENT_HOME`, defaults to `~/.agents`)
 - `./agent-tool.sh cfg 1mcp restart` (restart the MCP gateway after config changes)
 
 ---
@@ -77,7 +77,7 @@ Quick commands:
 - `<type>`: `feat | bugfix | refactor | chore | exp`
 - `<scope>`: 任务范围, 使用 kebab-case, 例如: `user-profile-header`
 - `cfg` 子命令:
-  - `cfg init` / `cfg init-force`: 运行 `cfg/install_symlinks.sh -v [--force]`
+  - `cfg init` / `cfg init-force`: 运行 `cfg/install_symlinks.sh -v [--force] [--enable-1mcp-autostart|--disable-1mcp-autostart]`
   - `cfg init rules <type>...`: 安装项目级 rules 到 `.claude/rules/` (android|ios|web|backend)
   - `cfg refresh`: 刷新文件级软链（新增 commands/skills/hooks/agents/rules 后用）
   - `cfg selftest [--v]`: 自检配置目录与软链状态
@@ -337,6 +337,9 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 # 初始化软链（同时配置 1mcp 端点）
 ./agent-tool.sh cfg init
 
+# 初始化软链并在已安装 1mcp 时自动配置开机自启
+./agent-tool.sh cfg init --enable-1mcp-autostart
+
 # 强制接管非软链路径
 ./agent-tool.sh cfg init-force
 
@@ -412,6 +415,12 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 ./agent-tool.sh cfg 1mcp logs -f  # 实时跟踪
 ```
 
+可选自动化方式：
+
+- 一次性：`./agent-tool.sh cfg init --enable-1mcp-autostart`
+- 持久化：在 `~/.agent-tool/config` 中设置 `AGENT_TOOL_ENABLE_1MCP_AUTOSTART=true`
+- 持久化开启后，`cfg init` 会在已安装 `1mcp` 时自动执行 `cfg 1mcp enable`；如果尚未安装，会在后续 `cfg 1mcp install` 成功后自动启用
+
 ### 配置文件
 
 | 文件 | 说明 |
@@ -428,6 +437,7 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 ./agent-tool.sh cfg init
 
 # 2. 安装 1mcp binary
+#    若已配置 AGENT_TOOL_ENABLE_1MCP_AUTOSTART=true，会自动启用开机自启
 ./agent-tool.sh cfg 1mcp install
 
 # 3. 启动 1mcp server
@@ -536,6 +546,9 @@ DEFAULT_BASE_BRANCH="dev"
 
 # 统一配置目录（cfg/install_symlinks.sh 和 doctor/cfg_doctor.sh 会读取）
 AGENT_HOME="$HOME/.agents"
+
+# 可选：在 cfg init / cfg 1mcp install 后自动配置 1mcp 开机自启
+AGENT_TOOL_ENABLE_1MCP_AUTOSTART=true
 ```
 
 注意:

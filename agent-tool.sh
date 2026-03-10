@@ -46,8 +46,8 @@ usage() {
   --run      对于支持的平台, 表示构建完成后尝试安装/运行
 
 cfg 子命令:
-  cfg init              # 初始化统一配置目录软链 (install_symlinks.sh -v)
-  cfg init-force        # 初始化并强制覆盖非软链路径 (--force)
+  cfg init [options]    # 初始化统一配置目录软链 (install_symlinks.sh -v)
+  cfg init-force [options] # 初始化并强制覆盖非软链路径 (--force)
   cfg refresh           # 新增 commands/skills/hooks/agents 后刷新软链 (-U)
   cfg selftest [--v]    # 自检配置目录及软链状态
   cfg mcp [options]     # 在项目根生成 .mcp.json + .1mcprc (等价于 cfg 1mcp init-project)
@@ -119,13 +119,17 @@ help_command() {
   cfg)
     cat <<EOF
 cfg 子命令:
-  cfg init                     # 初始化统一配置目录软链 (install_symlinks.sh -v)
+  cfg init [options]           # 初始化统一配置目录软链 (install_symlinks.sh -v)
   cfg init rules <type>...     # 安装项目级 rules 到 .claude/rules/ (android|ios|web|backend)
-  cfg init-force               # 初始化并强制覆盖非软链路径 (--force)
+  cfg init-force [options]     # 初始化并强制覆盖非软链路径 (--force)
   cfg refresh                  # 新增 commands/skills/hooks/agents/rules 后刷新软链 (-U)
   cfg selftest [--v]           # 自检配置目录及软链状态
   cfg mcp [options]            # 在项目根生成 .mcp.json + .1mcprc (等价于 cfg 1mcp init-project)
   cfg 1mcp <command>           # 管理 1mcp 统一 MCP 网关 (install|start|stop|status|...)
+
+常用 options:
+  --enable-1mcp-autostart      # 若已安装 1mcp，则自动配置开机自启
+  --disable-1mcp-autostart     # 显式关闭本次 init 的自动开机自启
 EOF
     ;;
   ws)
@@ -305,7 +309,7 @@ run_cfg_script() {
     agent_error "E_CFG_SCRIPT_NOT_FOUND" "找不到配置脚本: $path"
     exit 1
   fi
-  "$path" "$@"
+  AGENT_TOOL_ENABLE_1MCP_AUTOSTART="${AGENT_TOOL_ENABLE_1MCP_AUTOSTART-}" "$path" "$@"
 }
 
 # 安装项目级 rules 到 .claude/rules/
@@ -395,7 +399,8 @@ cfg_command() {
     fi
     ;;
   init-force)
-    run_cfg_script "install_symlinks.sh" -v --force
+    shift || true
+    run_cfg_script "install_symlinks.sh" -v --force "$@"
     ;;
   refresh)
     run_cfg_script "install_symlinks.sh" -U
@@ -426,7 +431,7 @@ cfg_command() {
       agent_error "E_CFG_SCRIPT_NOT_FOUND" "找不到 1mcp 脚本: $onemcp_script"
       exit 1
     fi
-    "$onemcp_script" "$@"
+    AGENT_TOOL_ENABLE_1MCP_AUTOSTART="${AGENT_TOOL_ENABLE_1MCP_AUTOSTART-}" "$onemcp_script" "$@"
     ;;
   *)
     agent_error "E_SUBCOMMAND_UNKNOWN" "未知 cfg 子命令: ${sub}"

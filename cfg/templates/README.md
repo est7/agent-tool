@@ -77,6 +77,7 @@ $AGENT_HOME
 ```bash
 # 在 agent-tool 仓库中
 ./agent-tool.sh cfg init        # 初始化目录结构 + 建立软链接
+./agent-tool.sh cfg init --enable-1mcp-autostart
 ./agent-tool.sh cfg selftest -v # 自检配置是否正确
 ```
 
@@ -99,6 +100,17 @@ $AGENT_HOME
 ```bash
 ./agent-tool.sh cfg 1mcp enable    # macOS: launchd, Linux: systemd
 ```
+
+如果你希望后续不再手动执行这一步，可以在 `~/.agent-tool/config` 中加入：
+
+```bash
+AGENT_TOOL_ENABLE_1MCP_AUTOSTART=true
+```
+
+开启后：
+
+- `./agent-tool.sh cfg init` 会在已安装 `1mcp` 时自动配置开机自启
+- 如果当时还没安装 `1mcp`，则会在后续 `./agent-tool.sh cfg 1mcp install` 成功后自动启用
 
 ---
 

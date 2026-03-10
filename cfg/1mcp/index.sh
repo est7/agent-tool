@@ -94,6 +94,9 @@ show_1mcp_help() {
 
 更多信息:
   https://docs.1mcp.app/
+
+环境变量:
+  AGENT_TOOL_ENABLE_1MCP_AUTOSTART=true   install 成功后自动配置开机自启
 EOF
 }
 
@@ -111,6 +114,34 @@ log_error() {
 
 log_warn() {
   echo "[1mcp] 警告: $*" >&2
+}
+
+normalize_autostart_setting() {
+  local value="${1:-}"
+  local normalized=""
+
+  normalized="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
+  case "$normalized" in
+    1|true|yes|on) echo "true" ;;
+    0|false|no|off) echo "false" ;;
+    "") echo "" ;;
+    *)
+      log_error "布尔配置无效: ${value}（支持: true/false/1/0/yes/no/on/off）"
+      return 1
+      ;;
+  esac
+}
+
+maybe_enable_autostart_after_install() {
+  local setting=""
+  setting="$(normalize_autostart_setting "${AGENT_TOOL_ENABLE_1MCP_AUTOSTART:-}")" || return 1
+
+  if [[ "$setting" != "true" ]]; then
+    return 0
+  fi
+
+  log_info "检测到已开启 1mcp 自动开机自启，正在配置..."
+  cmd_enable
 }
 
 # 渲染模板文件（替换 {{VAR}} 占位符）
@@ -383,6 +414,8 @@ cmd_install() {
 
   ln -sf "$ONEMCP_CONFIG" "$onemcp_official_config"
   log_info "软链接: $onemcp_official_config → $ONEMCP_CONFIG"
+
+  maybe_enable_autostart_after_install
 }
 
 cmd_start() {

@@ -25,6 +25,7 @@ DRY_RUN=false
 VERBOSE=false
 FORCE=false
 UPGRADE=false
+ONEMCP_AUTOSTART_MODE=""
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 通用工具函数
@@ -39,11 +40,14 @@ usage() {
   -v, --verbose     显示详细输出
   -f, --force       强制覆盖已有的非软链接目标（危险，谨慎使用）
   -U, --upgrade     仅刷新软链接（新增 command/skill 后同步用）
+  --enable-1mcp-autostart   若已安装 1mcp，则自动配置开机自启
+  --disable-1mcp-autostart  显式关闭本次 init 的自动开机自启
   -u, --uninstall   移除由本脚本创建的软链接
   -h, --help        显示本帮助信息
 
 环境变量:
   AGENT_HOME        统一配置仓库路径（默认: ~/.agents）
+  AGENT_TOOL_ENABLE_1MCP_AUTOSTART   true/false，控制是否自动配置 1mcp 开机自启
 EOF
   exit 0
 }
@@ -53,6 +57,66 @@ log_success() { echo -e "${GREEN}[✓]${NC} $1"; }
 log_warn()    { echo -e "${YELLOW}[!]${NC} $1"; }
 log_error()   { echo -e "${RED}[✗]${NC} $1" >&2; }
 log_verbose() { $VERBOSE && echo "    … $1" || true; }
+
+normalize_bool_setting() {
+  local value="${1:-}"
+  local normalized=""
+
+  normalized="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
+  case "$normalized" in
+    1|true|yes|on) echo "true" ;;
+    0|false|no|off) echo "false" ;;
+    "") echo "" ;;
+    *)
+      log_error "布尔配置无效: ${value}（支持: true/false/1/0/yes/no/on/off）"
+      return 1
+      ;;
+  esac
+}
+
+resolve_1mcp_autostart_mode() {
+  if [[ -n "$ONEMCP_AUTOSTART_MODE" ]]; then
+    echo "$ONEMCP_AUTOSTART_MODE"
+    return 0
+  fi
+
+  normalize_bool_setting "${AGENT_TOOL_ENABLE_1MCP_AUTOSTART:-}"
+}
+
+maybe_enable_1mcp_autostart() {
+  local mode=""
+  mode="$(resolve_1mcp_autostart_mode)" || return 1
+
+  if $UPGRADE; then
+    log_verbose "upgrade 模式跳过 1mcp 自动开机自启配置"
+    return 0
+  fi
+
+  if [[ "$mode" != "true" ]]; then
+    return 0
+  fi
+
+  local onemcp_bin="${AGENT_HOME}/mcp/bin/1mcp"
+  local onemcp_script="${SCRIPT_DIR}/1mcp/index.sh"
+
+  if $DRY_RUN; then
+    log_info "Dry-run: 将在已安装 1mcp 时自动配置开机自启"
+    return 0
+  fi
+
+  if [[ ! -x "$onemcp_bin" ]]; then
+    log_warn "已开启 1mcp 自动开机自启，但当前未安装 1mcp；安装后会自动启用。"
+    return 0
+  fi
+
+  if [[ ! -x "$onemcp_script" ]]; then
+    log_error "找不到 1mcp 管理脚本: $onemcp_script"
+    return 1
+  fi
+
+  log_info "检测到已开启 1mcp 自动开机自启，正在配置..."
+  AGENT_TOOL_ENABLE_1MCP_AUTOSTART="$mode" "$onemcp_script" enable
+}
 
 ensure_dir() {
   local dir="$1"
@@ -893,6 +957,12 @@ case "$1" in
 -v|--verbose)   VERBOSE=true ;;
 -f|--force)     FORCE=true ;;
 -U|--upgrade)   UPGRADE=true ;;
+--enable-1mcp-autostart)
+  ONEMCP_AUTOSTART_MODE="true"
+  ;;
+--disable-1mcp-autostart)
+  ONEMCP_AUTOSTART_MODE="false"
+  ;;
 -u|--uninstall) uninstall; exit 0 ;;
 -h|--help)      usage ;;
 *) log_error "未知选项: $1"; usage ;;
@@ -924,8 +994,12 @@ echo ""
 setup_gemini
 echo ""
 
+maybe_enable_1mcp_autostart
+
 log_success "全部完成：Claude / Codex / Gemini 已指向你的统一配置目录。"
 $VERBOSE && echo -e "\n${BLUE}提示:${NC} 新机器上推荐顺序：先运行本脚本，再安装启动 1mcp (cfg 1mcp install && cfg 1mcp start)，最后在项目中运行 cfg mcp。"
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
