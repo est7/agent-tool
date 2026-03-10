@@ -457,7 +457,9 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 
 ### 默认 MCP Servers
 
-`cfg init` 会在 `~/.agents/mcp/mcp.json` 中配置以下 MCP servers：
+`cfg init` 会在 `~/.agents/mcp/mcp.json` 中写入以下 MCP server 定义。
+
+默认启用：
 
 | Server | 标签 | 说明 |
 |--------|------|------|
@@ -467,8 +469,14 @@ ios_scheme: MyApp                       # 默认 Tuist scheme 名称, 例如 MyA
 | `claudecode-mcp-async` | agent-cli, all | Claude Code 异步调用 |
 | `codex-mcp-async` | agent-cli, all | Codex CLI 异步调用 |
 | `gemini-cli-mcp-async` | agent-cli, all | Gemini CLI 异步调用 |
-| `github` | search, all | GitHub 全平台检索与项目管理 |
-| `jetbrains` | ide, all | JetBrains IDE 集成（SSE，默认禁用，需手动启用） |
+| `google-developer-knowledge` | search, all | Google 官方开发者文档检索 |
+
+默认禁用：
+
+| Server | 标签 | 说明 |
+|--------|------|------|
+| `github` | search, all | GitHub 全平台检索与项目管理；依赖本机 Docker，需手动启用 |
+| `jetbrains` | ide, all | JetBrains IDE 集成（SSE，需手动启用） |
 
 ## 开发与校验
 

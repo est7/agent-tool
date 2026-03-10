@@ -30,10 +30,13 @@ agent-tool cfg 1mcp init-project
 |--------|------|------|------|
 | `sequential-thinking` | command | 结构化思考、任务分解 | core, all |
 | `context7` | command | 获取库/框架最新文档 | core, all, search |
-| `devtools` | http | Chrome DevTools 协议调试 | web, all |
+| `auggie-mcp` | stdio | AI 语义代码检索（codebase-retrieval） | core, search, all |
 | `claudecode-mcp-async` | command | 异步调用 Claude Code | agent-cli, all |
 | `codex-mcp-async` | command | 异步调用 Codex CLI | agent-cli, all |
 | `gemini-cli-mcp-async` | command | 异步调用 Gemini CLI | agent-cli, all |
+| `github` | command | GitHub MCP server（默认禁用，依赖 Docker） | search, all |
+| `google-developer-knowledge` | http | Google 官方开发者文档检索 | search, all |
+| `jetbrains` | sse | JetBrains IDE 集成（默认禁用） | ide, all |
 
 ## Preset 预设
 
@@ -41,10 +44,15 @@ agent-tool cfg 1mcp init-project
 
 | Preset | 包含的 Servers |
 |--------|----------------|
-| `all` | 全部 6 个 servers（默认） |
-| `core` | sequential-thinking, context7 |
+| `all` | 全部已定义 servers（默认；`github`/`jetbrains` 默认禁用） |
+| `core` | sequential-thinking, context7, auggie-mcp |
 | `agent-cli` | claudecode/codex/gemini-cli-mcp-async |
-| `web` | devtools |
+| `web` | 当前模板未预置 web 专用 server |
+
+## 默认禁用的 Server
+
+- `github`: 通过 Docker 运行 `ghcr.io/github/github-mcp-server`。如果本机未安装或未启动 Docker，1mcp 启动后会在健康检查中报错，因此模板默认禁用。
+- `jetbrains`: 需要本地 JetBrains IDE MCP SSE 端点，模板默认禁用。
 
 ### 使用 Preset
 

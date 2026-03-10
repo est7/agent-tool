@@ -28,6 +28,7 @@ ONEMCP_PID_FILE="${AGENT_HOME}/mcp/1mcp.pid"
 ONEMCP_LOG_DIR="${AGENT_HOME}/mcp/logs"
 ONEMCP_LOG_FILE="${ONEMCP_LOG_DIR}/1mcp.log"
 ONEMCP_PORT="${ONEMCP_PORT:-3050}"
+ONEMCP_LAST_HEALTH_JSON=""
 
 # 1mcp release 下载 URL
 ONEMCP_VERSION="latest"
@@ -189,13 +190,93 @@ get_pid() {
   fi
 }
 
+listener_pid_for_port() {
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -tiTCP:"${ONEMCP_PORT}" -sTCP:LISTEN 2>/dev/null | head -n 1
+  else
+    echo ""
+  fi
+}
+
+fetch_health_json() {
+  curl -fsS "http://127.0.0.1:${ONEMCP_PORT}/health"
+}
+
+health_field() {
+  local json="$1"
+  local query="$2"
+
+  if command -v jq >/dev/null 2>&1; then
+    jq -r "$query // empty" <<<"$json" 2>/dev/null
+  else
+    echo ""
+  fi
+}
+
+health_status() {
+  local json="$1"
+  health_field "$json" '.status'
+}
+
+print_health_summary() {
+  local json="$1"
+  local status
+  local total
+  local healthy
+  local unhealthy
+  local detail_lines
+
+  status="$(health_status "$json")"
+  total="$(health_field "$json" '.servers.total')"
+  healthy="$(health_field "$json" '.servers.healthy')"
+  unhealthy="$(health_field "$json" '.servers.unhealthy')"
+
+  if [[ "$status" == "healthy" ]]; then
+    echo "健康: ✓ 正常"
+  elif [[ -n "$status" ]]; then
+    echo "健康: ✗ 异常 (${status})"
+  else
+    echo "健康: ✗ 无法解析状态"
+  fi
+
+  if [[ -n "$total" || -n "$healthy" || -n "$unhealthy" ]]; then
+    echo "详情: total=${total:-?}, healthy=${healthy:-?}, unhealthy=${unhealthy:-?}"
+  fi
+
+  if command -v jq >/dev/null 2>&1; then
+    detail_lines="$(jq -r '
+      (.servers.details // [])
+      | map(select((.status // "") != "" and (.status != "healthy")))
+      | .[]
+      | "\((.name // .server // .id // "unknown"))\t\((.error // .message // .reason // .status // "unknown"))"
+    ' <<<"$json" 2>/dev/null || true)"
+
+    if [[ -n "$detail_lines" ]]; then
+      while IFS=$'\t' read -r name reason; do
+        [[ -z "$name" ]] && continue
+        echo "失败: ${name} - ${reason}"
+      done <<<"$detail_lines"
+    fi
+  fi
+}
+
 # 等待服务启动
 wait_for_start() {
   local max_attempts=30
   local attempt=0
+  ONEMCP_LAST_HEALTH_JSON=""
   while (( attempt < max_attempts )); do
-    if curl -s "http://127.0.0.1:${ONEMCP_PORT}/health" >/dev/null 2>&1; then
-      return 0
+    local health_json=""
+    if health_json="$(fetch_health_json 2>/dev/null)"; then
+      ONEMCP_LAST_HEALTH_JSON="$health_json"
+      case "$(health_status "$health_json")" in
+        healthy)
+          return 0
+          ;;
+        unhealthy)
+          return 2
+          ;;
+      esac
     fi
     sleep 0.5
     ((attempt++))
@@ -317,6 +398,14 @@ cmd_start() {
     return 1
   fi
 
+  local existing_listener_pid=""
+  existing_listener_pid="$(listener_pid_for_port || true)"
+  if [[ -n "$existing_listener_pid" ]]; then
+    log_error "端口 ${ONEMCP_PORT} 已被其他进程占用 (PID: ${existing_listener_pid})"
+    log_info "请先停止旧实例后再重试"
+    return 1
+  fi
+
   mkdir -p "$ONEMCP_LOG_DIR"
 
   log_info "启动 1mcp server (端口: ${ONEMCP_PORT})..."
@@ -330,11 +419,28 @@ cmd_start() {
   echo "$pid" > "$ONEMCP_PID_FILE"
 
   # 等待启动
+  local wait_rc=0
   if wait_for_start; then
+    local listener_pid=""
+    listener_pid="$(listener_pid_for_port || true)"
+    if [[ -n "$listener_pid" && "$listener_pid" != "$pid" ]]; then
+      log_error "端口 ${ONEMCP_PORT} 由其他进程监听 (PID: ${listener_pid})，而非新启动的 1mcp (PID: ${pid})"
+      log_info "请检查是否存在旧实例残留"
+      return 1
+    fi
     log_info "1mcp 已启动 (PID: $pid)"
     log_info "健康检查: http://127.0.0.1:${ONEMCP_PORT}/health"
   else
-    log_error "启动超时，请检查日志: $ONEMCP_LOG_FILE"
+    wait_rc=$?
+    if [[ "$wait_rc" -eq 2 ]]; then
+      log_error "1mcp 已启动，但启动后健康检查异常"
+      if [[ -n "$ONEMCP_LAST_HEALTH_JSON" ]]; then
+        print_health_summary "$ONEMCP_LAST_HEALTH_JSON"
+      fi
+      log_info "请检查日志: $ONEMCP_LOG_FILE"
+    else
+      log_error "启动超时，请检查日志: $ONEMCP_LOG_FILE"
+    fi
     return 1
   fi
 }
@@ -405,8 +511,9 @@ cmd_status() {
     echo "端口: $ONEMCP_PORT"
 
     # 健康检查
-    if curl -s "http://127.0.0.1:${ONEMCP_PORT}/health" >/dev/null 2>&1; then
-      echo "健康: ✓ 正常"
+    local health_json=""
+    if health_json="$(fetch_health_json 2>/dev/null)"; then
+      print_health_summary "$health_json"
     else
       echo "健康: ✗ 无响应"
     fi

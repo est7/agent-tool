@@ -170,7 +170,7 @@ $AGENT_HOME
       "command": "docker",
       "args": ["run", "-i", "--rm", "-e", "GITHUB_PERSONAL_ACCESS_TOKEN", "ghcr.io/github/github-mcp-server"],
       "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}" },
-      "disabled": false,
+      "disabled": true,
       "tags": ["search", "all"]
     },
     "google-developer-knowledge": {
@@ -198,11 +198,13 @@ MCP servers 通过 tags 分类，支持在项目级别使用 preset 过滤：
 
 | Preset | Tags | 包含的 Servers |
 |--------|------|---------------|
-| `all` | 全部 | 8 个（默认；jetbrains 需手动启用） |
+| `all` | 全部 | 8 个定义（默认；`github`/`jetbrains` 需手动启用） |
 | `core` | core | sequential-thinking, context7, auggie-mcp |
 | `search` | search | context7, auggie-mcp, github, google-developer-knowledge |
 | `agent-cli` | agent-cli | claudecode/codex/gemini-cli-mcp-async |
 | `ide` | ide | jetbrains |
+
+`github` server 通过 Docker 运行，若本机 Docker 不可用会导致 1mcp 健康检查失败，因此模板默认禁用。
 
 ### 常用命令
 

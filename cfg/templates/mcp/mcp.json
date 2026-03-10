@@ -84,7 +84,7 @@
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}"
       },
-      "disabled": false,
+      "disabled": true,
       "tags": [
         "search",
         "all"
