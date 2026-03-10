@@ -267,13 +267,17 @@ wait_for_start() {
   ONEMCP_LAST_HEALTH_JSON=""
   while (( attempt < max_attempts )); do
     local health_json=""
+    local status=""
     if health_json="$(fetch_health_json 2>/dev/null)"; then
       ONEMCP_LAST_HEALTH_JSON="$health_json"
-      case "$(health_status "$health_json")" in
+      status="$(health_status "$health_json")"
+      case "$status" in
         healthy)
           return 0
           ;;
-        unhealthy)
+        "")
+          ;;
+        *)
           return 2
           ;;
       esac

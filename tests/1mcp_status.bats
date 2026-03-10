@@ -85,6 +85,60 @@ JSON
   [[ "${output}" == *"spawn docker ENOENT"* ]]
 }
 
+@test "cfg 1mcp status: degraded health endpoint should be shown as degraded" {
+  local fake_home
+  fake_home="$(create_fake_onemcp_home)"
+  local script_path="${BATS_TEST_DIRNAME}/../cfg/1mcp/index.sh"
+
+  run bash -lc "
+    set -euo pipefail
+    export HOME='${fake_home}'
+    export AGENT_HOME='${fake_home}/.agents'
+    source '${script_path}'
+
+    is_running() { return 0; }
+    get_pid() { echo 4242; }
+    curl() {
+      cat <<'JSON'
+{\"status\":\"degraded\",\"servers\":{\"total\":8,\"healthy\":7,\"unhealthy\":1,\"details\":[]}}
+JSON
+    }
+
+    cmd_status
+  "
+
+  [ "${status}" -eq 0 ]
+  [[ "${output}" == *"健康: ✗ 异常 (degraded)"* ]]
+  [[ "${output}" == *"详情: total=8, healthy=7, unhealthy=1"* ]]
+}
+
+@test "cfg 1mcp start: degraded health endpoint should fail startup without waiting for timeout" {
+  local fake_home
+  fake_home="$(create_fake_onemcp_home)"
+  local script_path="${BATS_TEST_DIRNAME}/../cfg/1mcp/index.sh"
+
+  run bash -lc "
+    set -euo pipefail
+    export HOME='${fake_home}'
+    export AGENT_HOME='${fake_home}/.agents'
+    source '${script_path}'
+
+    nohup() { \"\$@\"; }
+    listener_pid_for_port() { return 0; }
+    curl() {
+      cat <<'JSON'
+{\"status\":\"degraded\",\"servers\":{\"total\":8,\"healthy\":7,\"unhealthy\":1,\"details\":[]}}
+JSON
+    }
+
+    cmd_start
+  "
+
+  [ "${status}" -eq 1 ]
+  [[ "${output}" == *"启动后健康检查异常"* ]]
+  [[ "${output}" == *"异常 (degraded)"* ]]
+}
+
 @test "cfg 1mcp start: occupied port should fail before launching a duplicate process" {
   local fake_home
   fake_home="$(create_fake_onemcp_home)"
