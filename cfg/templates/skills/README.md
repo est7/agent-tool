@@ -26,7 +26,7 @@ English summary: this directory contains skill templates shared across Claude Co
 | `mcp-services` | MCP 服务的详细使用手册（按需加载） | 自动 |
 | `plan-code-workflow` | 非平凡任务的 Plan/Code 工作流（按需加载） | 自动 |
 | `prompt-engineering` | Prompt 工程最佳实践 | 自动 |
-| `task-memo` | 任务记录与 memo 规范（按需加载） | 自动 |
+| `docs-system` | 文档体系落盘与索引维护（按需加载） | 自动 |
 | `testing-tdd` | 测试与 TDD 工作流（按需加载） | 自动 |
 | `version-bump` | 版本号升级并提交 git | `/version-bump` |
 
@@ -80,7 +80,7 @@ English summary: this directory contains skill templates shared across Claude Co
 |-------|------|
 | `plan-code-workflow` | 非平凡任务的 Plan/Code 工作流（如何推进、何时切模式） |
 | `testing-tdd` | 严格的 Red-Green-Refactor 与测试真实性原则 |
-| `task-memo` | `docs/memo/` 的记录时机、路径与写法 |
+| `docs-system` | `docs/` 文档分类、索引、postmortem 与上下文落盘规范 |
 | `implementation-gates` | Phase -1 门禁清单与例外流程 |
 | `mcp-services` | MCP 每个服务的详细用法与组合模式 |
 

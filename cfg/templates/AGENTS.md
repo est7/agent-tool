@@ -10,6 +10,8 @@
 ## Project Hygiene
 
 - Root directory and each meaningful module directory must contain a `README.md` explaining usage; update only when the public interface or usage changes. Treat “module” as a semantic unit (a folder that exposes a public interface or a standalone workflow), not a fixed list of directory names.
+- Use `docs/` as the primary long-lived document tree (`design`, `research`, `implementation`, `reference`, `user`, `context`, `postmortem`, `archive`) and keep `docs/README.md` current when important entry points change.
+- When a subproject or module has local docs, keep them near the code and add pointers from the nearest relevant index and from `AGENTS.md` when they become important entry points.
 - Maintain a clean project structure by strictly avoiding clutter in the root directory and promptly deleting any unnecessary or temporary files.
 - Eliminate obsolete and historical code only when it is clearly unused and within the current task scope; for cross-module or large cleanup, list the cleanup set and ask for confirmation first.
 - Ensure all code is formatted using the repository's existing linters/formatters (e.g., Prettier, Ruff, ESLint) before delivery (and before committing, if committing).

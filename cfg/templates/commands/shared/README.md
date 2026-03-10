@@ -20,6 +20,8 @@ English summary: this directory contains slash command templates intended to be 
 | `/design-patterns` | 设计模式和 SOLID 原则分析 |
 | `/enhance-prompt` | 交互式优化模糊指令 |
 | `/enhance-spec` | 采访式需求规格细化 |
+| `/docs-sync` | 把当前上下文落盘到合适的 `docs/` 分类并刷新索引 |
+| `/postmortem-check` | 发布前后基于 `docs/postmortem/` 做检查与落盘 |
 | `/remove-ai-junk-code` | 清理 AI 生成的代码垃圾 |
 | `/lanhu` | 蓝湖设计稿提取（截图版） |
 | `/lanhu01` | 蓝湖设计稿提取（跨平台规格） |
@@ -28,6 +30,36 @@ English summary: this directory contains slash command templates intended to be 
 ---
 
 ## 使用方式与适用场景
+
+### /docs-sync
+
+**使用方式**:
+```
+/docs-sync 更新这次重构涉及的设计文档和实现记录
+/docs-sync 把当前讨论整理进 docs/reference 和 docs/context
+```
+
+**适用场景**:
+- 需要把当前上下文落盘到 `docs/`
+- 更新设计、研究、实现、参考、用户、上下文或归档文档
+- 刷新 `docs/README.md` 或局部索引
+
+---
+
+### /postmortem-check
+
+**使用方式**:
+```
+/postmortem-check 发布前检查这批改动是否触发已有 postmortem
+/postmortem-check 把这次 fix 整理成新的 postmortem
+```
+
+**适用场景**:
+- 发布前对照已有 `docs/postmortem/` 做风险检查
+- 发布后或修复后沉淀新的尸检报告
+- 刷新 `docs/postmortem/README.md` 的 TOC
+
+---
 
 ### /deep-plan
 

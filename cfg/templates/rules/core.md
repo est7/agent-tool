@@ -8,5 +8,5 @@
 - `core/workflow.md`: §2 + §4 + §8 + §9 (task complexity routing + Plan/Code + answer structure + style)
 - `core/self-check.md`: §7 (self-check and self-fix protocol)
 - `testing/tdd.md`: §10 (testing and TDD requirements)
-- `memo/task-memo.md`: §11 (task memo / 落盘规范)
+- `docs/docs-system.md`: §11 (documentation persistence / docs system)
 - `conventions.md`: §5 + §6 + §12 (language + git + tools & environment)

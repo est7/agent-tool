@@ -39,4 +39,4 @@ Use the project's existing formatter configuration; run the formatter/linter bef
 ## Summary · Rule Changes
 
 * Modifying core rules requires: stated motivation, maintainer review, backward-compatibility assessment.
-* Record significant rule changes in `docs/memo/`.
+* Record significant rule, design, and process changes in the appropriate `docs/` category; use `docs/postmortem/` for failure-analysis documents.
