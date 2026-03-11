@@ -123,13 +123,15 @@ Skills must be in a `skills/` directory at the plugin root.
 
 **Common mistakes:**
 
-**Missing required fields:**
+**Missing recommended description:**
 ```yaml
-# Wrong - missing description
+# Valid, but Claude has less information for auto-triggering
 ---
 name: my-skill
 ---
 ```
+
+Add a `description` whenever you want reliable automatic invocation.
 
 **Invalid name format:**
 ```yaml
@@ -146,21 +148,50 @@ name: my-skill-name
 
 **Reserved words:**
 ```yaml
-# Wrong - cannot use "claude" or "anthropic"
+# Wrong - cannot use "claude" or "anthropic" in the name
 ---
 name: claude-helper
 ---
 ```
 
-**Wrong person in description:**
+**Unsupported custom fields:**
 ```yaml
-# Wrong - uses first/second person
+# Wrong - project-specific frontmatter should not be introduced
 ---
-description: I help you process PDFs
+name: my-skill
+compatibility: Claude Code only
+---
+```
+
+**Incorrect invocation control:**
+```yaml
+# Manual-only workflow
+---
+name: deploy
+description: Deploy the application to production
+disable-model-invocation: true
 ---
 
-# Correct - third person
+# Hidden background helper
 ---
-description: Processes PDF files for text extraction
+name: billing-context
+description: Explains the billing system when relevant
+user-invocable: false
+---
+```
+
+**Subagent fields without forked context:**
+```yaml
+# Wrong - agent requires context: fork
+---
+name: research-helper
+agent: Explore
+---
+
+# Correct
+---
+name: research-helper
+context: fork
+agent: Explore
 ---
 ```

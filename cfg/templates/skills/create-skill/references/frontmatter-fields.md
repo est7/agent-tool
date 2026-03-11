@@ -1,326 +1,288 @@
 # Frontmatter Fields Reference
 
-All SKILL.md files must start with YAML frontmatter. This reference documents all available fields.
+This file documents the current Claude Code skill frontmatter model and the most useful authoring patterns to layer on top of it.
+
+Official semantics come first. The guidance here then adds practical recommendations for writing better skills.
 
 ---
 
-## When to Use Optional Fields (Decision Guide)
+## Recommended Defaults
 
-**大多数 Skills 只需要 `name` + `description`**。可选字段用于特定场景：
-
-| 字段 | 何时考虑使用 | 优先级 |
-|:-----|:------------|:-------|
-| `context: fork` | 主上下文只需结果，不需中间过程（避免上下文污染） | **高 - 最重要的优化** |
-| `agent` | fork 模式下需要专精化 agent 执行特定类型任务 | 中 - 建立 subagent-skillset 架构 |
-| `hooks` | 记录中间变更、执行验证、结果回传主上下文 | 中 - 配合 fork 实现完整工作流 |
-| `allowed-tools` | 需要限制工具访问（安全敏感/只读操作） | 中 - 安全相关时必用 |
-| `model` | 任务需要特定模型能力（如 Opus 的深度推理） | 低 - 极少需要 |
-| `user-invocable` | 只想自动触发，不想出现在 `/` 菜单 | 低 - helper Skills |
-
-### 核心概念：上下文分叉 (context: fork)
-
-**问题**：以前 Skills 是 inline（内联）运行的，执行过程中的中间步骤会**污染主上下文**。
-
-**解决方案**：`context: fork` 让 Skill 在**独立的子 Agent 上下文**中运行：
-- 主上下文只获取**最终结果**，保持整洁
-- 子上下文处理所有中间过程
-- 特别适合产生大量中间输出的任务（如 dev browser skill、代码分析、文件处理）
-
-### Subagent-Skillset 架构模式
-
-`agent` 字段 + `hooks` 可以建立**专精化分工**：
-
-```
-主上下文
-    │
-    ├─ Skill A (context: fork, agent: Explore)
-    │   └─ 专门做代码探索，hooks 记录发现
-    │
-    ├─ Skill B (context: fork, agent: Plan)
-    │   └─ 专门做架构规划，hooks 记录决策
-    │
-    └─ Skill C (context: fork, agent: custom-reviewer)
-        └─ 专门做代码审查，hooks 记录问题
-```
-
-**hooks 的关键作用**：
-- `PostToolUse`: 记录中间变更过程
-- `Stop`: Skill 结束时，引导主上下文读取变更结果
-
-### 决策流程
-
-```
-开始创建 Skill
-    │
-    ├─ 只需要 name + description 吗？
-    │   └─ 是 → 完成（简单 Skills）
-    │
-    ├─ 主上下文需要看到中间过程吗？
-    │   └─ 否，只需要结果 → 添加 context: fork
-    │       │
-    │       ├─ 需要专精化执行？
-    │       │   ├─ 代码探索 → agent: Explore
-    │       │   ├─ 架构规划 → agent: Plan
-    │       │   ├─ 自定义专精 → agent: your-custom-agent
-    │       │   └─ 通用任务 → 不设置（默认 general-purpose）
-    │       │
-    │       └─ 需要将变更记录回传主上下文？
-    │           └─ 是 → 添加 hooks (PostToolUse/Stop)
-    │
-    ├─ 需要限制 Claude 的工具访问？
-    │   └─ 是 → 添加 allowed-tools
-    │
-    └─ 不想让用户手动调用此 Skill？
-        └─ 是 → 添加 user-invocable: false
-```
-
-### 常见组合模式
-
-**模式 1: 结果导向型 Skill（最常用）**
-
-主上下文只需要结果，不关心中间过程：
+For most skills, start with:
 
 ```yaml
-name: analyzing-codebase
-description: Analyzes codebase structure and generates report...
-context: fork
-agent: Explore
+---
+name: explain-code
+description: Explains code with diagrams and analogies. Use when explaining how code works or teaching a codebase.
+---
 ```
 
-**模式 2: 带变更记录的 fork Skill**
+Recommended baseline:
 
-执行后将变更信息回传主上下文：
-
-```yaml
-name: refactoring-code
-description: Performs code refactoring with change tracking...
-context: fork
-agent: Plan
-hooks:
-  Stop:
-    - type: command
-      command: "./scripts/summarize-changes.sh"
-```
-
-**模式 3: 只读分析 Skill**
-
-```yaml
-name: security-scanning
-description: Scans code for security vulnerabilities...
-allowed-tools: Read, Grep, Glob
-context: fork
-```
-
-**模式 4: 安全敏感操作**
-
-```yaml
-name: database-migration
-description: Executes database migrations...
-allowed-tools: Read, Bash(python:*)
-hooks:
-  PreToolUse:
-    - matcher: "Bash"
-      hooks:
-        - type: command
-          command: "./scripts/validate-sql.sh $TOOL_INPUT"
-```
-
-**模式 5: 内部 helper Skill**
-
-```yaml
-name: format-checker
-description: Checks code formatting (used by other Skills)...
-user-invocable: false
-```
-
-### 热重载特性
-
-Skills 支持**热重载**：新增或修改的 Skills 立即生效，无需重启会话。
-
-**应用场景**：长时间运行的任务中，可以让 Claude 将重复性操作抽象为新 Skill，然后立即在后续任务中使用。
+- Include `description` whenever possible so Claude can auto-trigger the skill
+- Include `name` explicitly for clarity, even though the directory name can be used when omitted
+- Keep advanced frontmatter fields out until the workflow actually needs them
 
 ---
 
-## Required Fields
+## Field Reference
 
-### name
+| Field | Status | Notes |
+|:------|:-------|:------|
+| `name` | Optional | If omitted, Claude Code uses the directory name |
+| `description` | Recommended | Primary signal for automatic invocation |
+| `argument-hint` | Optional | Shown during autocomplete for direct invocation |
+| `disable-model-invocation` | Optional | Prevents Claude from auto-invoking the skill |
+| `user-invocable` | Optional | Controls visibility in the `/` menu |
+| `allowed-tools` | Optional | Tools Claude can use without extra approval while the skill is active |
+| `model` | Optional | Overrides the active model for the skill |
+| `context` | Optional | `fork` runs the skill in a subagent context |
+| `agent` | Optional | Subagent type to use with `context: fork` |
+| `hooks` | Optional | Hooks scoped to the skill lifecycle |
 
-**Required.** The Skill name.
+---
 
-**Validation rules:**
-- Maximum 64 characters
-- Only lowercase letters, numbers, and hyphens
-- Cannot contain XML tags
-- Cannot contain reserved words: "anthropic", "claude"
-- Should match the directory name
+## Core Rules
+
+### `name`
+
+`name` is optional, but if present it should be a clean identifier.
 
 ```yaml
 name: processing-pdfs
 ```
 
-### description
+Validation guidance:
 
-**Required.** What the Skill does and when to use it.
+- lowercase letters, numbers, and hyphens only
+- maximum 64 characters
+- do not use spaces or mixed case
 
-**Validation rules:**
-- Must be non-empty
-- Maximum 1024 characters
-- Cannot contain XML tags
-- **Always write in third person**
+Recommendation:
 
-**Good examples:**
-```yaml
-description: Extract text and tables from PDF files, fill forms, merge documents. Use when working with PDF files or when the user mentions PDFs, forms, or document extraction.
+- prefer explicit names so the slash command is obvious in review and diffs
+- gerund-style names are still a good convention when they read naturally
 
-description: Analyze Excel spreadsheets, create pivot tables, generate charts. Use when analyzing Excel files, spreadsheets, tabular data, or .xlsx files.
-```
+### `description`
 
-**Bad examples:**
-```yaml
-# Too vague
-description: Helps with documents
-
-# Wrong person (uses "I" or "you")
-description: I can help you process PDF files
-
-# Missing trigger context
-description: Processes data
-```
-
----
-
-## Optional Fields
-
-### allowed-tools
-
-Limits which tools Claude can use when this Skill is active. Tools listed here can be used without asking permission.
-
-**Formats:**
-
-Comma-separated string:
-```yaml
-allowed-tools: Read, Grep, Glob
-```
-
-YAML list:
-```yaml
-allowed-tools:
-  - Read
-  - Grep
-  - Glob
-```
-
-**Use cases:**
-- Read-only Skills that shouldn't modify files
-- Skills with limited scope (data analysis only, no file writing)
-- Security-sensitive workflows
-
-**Note:** If omitted, the Skill doesn't restrict tools. Claude uses its standard permission model.
-
-### model
-
-Specifies which model to use when this Skill is active.
+`description` is recommended because it drives automatic triggering.
 
 ```yaml
-model: claude-sonnet-4-20250514
+description: Extracts text and tables from PDF files. Use when the user is working with PDFs, forms, or document extraction.
 ```
 
-If not specified, defaults to the conversation's model.
+Recommendation:
 
-### context
+- include both what the skill does and when it should trigger
+- write from the skill's point of view, not in first person
+- bias slightly toward under-explained user intent rather than implementation details
+- keep within 1024 characters
 
-Set to `fork` to run the Skill in an isolated sub-agent context with its own conversation history.
+### `argument-hint`
+
+Shown in autocomplete to explain the expected arguments.
 
 ```yaml
-context: fork
+argument-hint: "[filename] [format]"
 ```
 
-**Use cases:**
-- Complex multi-step operations that shouldn't clutter the main conversation
-- Tasks requiring different tool access
-- Operations needing isolation from main context
+Use when the skill is mainly a direct `/skill-name ...` workflow.
 
-### agent
+### `disable-model-invocation`
 
-Specifies which agent type to use when `context: fork` is set.
+Blocks Claude from invoking the skill automatically.
 
 ```yaml
-context: fork
-agent: Explore
+disable-model-invocation: true
 ```
 
-**Valid values:**
-- `Explore` - Fast agent for exploring codebases
-- `Plan` - Software architect agent for designing implementation plans
-- `general-purpose` - General-purpose agent (default if not specified)
-- Custom agent name from `.claude/agents/`
+Use for side-effectful workflows like deploy, release, or commit helpers.
 
-**Note:** Only applicable when combined with `context: fork`.
+### `user-invocable`
 
-### hooks
-
-Define hooks scoped to this Skill's lifecycle. Supports `PreToolUse`, `PostToolUse`, and `Stop` events.
-
-```yaml
-hooks:
-  PreToolUse:
-    - matcher: "Bash"
-      hooks:
-        - type: command
-          command: "./scripts/security-check.sh $TOOL_INPUT"
-          once: true
-```
-
-**Hook event types:**
-- `PreToolUse` - Runs before a tool is used
-- `PostToolUse` - Runs after a tool is used
-- `Stop` - Runs when the Skill stops
-
-**Hook options:**
-- `matcher` - Tool name to match (e.g., "Bash", "Edit")
-- `type` - Hook type (e.g., "command")
-- `command` - Command to run
-- `once` - If true, only run once per session
-
-### user-invocable
-
-Set to `false` to hide the Skill from the slash command menu. Skills are visible in the menu by default.
+Controls whether the skill appears in the `/` menu.
 
 ```yaml
 user-invocable: false
 ```
 
-**Use cases:**
-- Skills that should only be triggered automatically, not manually
-- Helper Skills used by other Skills
+Use for background knowledge or helper skills that users should not run directly.
 
----
+### `allowed-tools`
 
-## Complete Example
+Can be a comma-separated string or YAML list.
 
 ```yaml
----
-name: secure-code-analysis
-description: Analyzes code for security vulnerabilities and generates reports. Use when reviewing code for security issues, auditing dependencies, or preparing security documentation.
+allowed-tools: Read, Grep, Glob
+```
+
+```yaml
 allowed-tools:
   - Read
   - Grep
   - Glob
-  - Bash(python:*)
+```
+
+Use when the skill needs a predictable tool boundary.
+
+### `model`
+
+Overrides the current model for this skill.
+
+```yaml
 model: claude-sonnet-4-20250514
+```
+
+Use sparingly. Most skills should inherit the session model.
+
+### `context`
+
+Set `context: fork` to run the skill in an isolated subagent context.
+
+```yaml
+context: fork
+```
+
+Use when:
+
+- the skill produces heavy intermediate output
+- the main context only needs the final result
+- the skill behaves more like a delegated task than inline reference material
+
+### `agent`
+
+Selects the subagent environment when using `context: fork`.
+
+```yaml
 context: fork
 agent: Explore
+```
+
+Typical values:
+
+- `Explore`
+- `Plan`
+- `general-purpose`
+- a custom agent name from `.claude/agents/`
+
+### `hooks`
+
+Hooks let the skill attach lifecycle actions.
+
+```yaml
 hooks:
-  PreToolUse:
-    - matcher: "Bash"
-      hooks:
-        - type: command
-          command: "./scripts/validate-command.sh $TOOL_INPUT"
-user-invocable: true
+  Stop:
+    - type: command
+      command: "./scripts/report.sh"
+```
+
+Use when the skill needs validation, logging, or post-run summaries around tool execution.
+
 ---
 
-# Secure Code Analysis
+## Invocation Control Patterns
 
-## Instructions
-...
+### Manual-only workflow
+
+```yaml
+---
+name: deploy
+description: Deploy the application to production
+disable-model-invocation: true
+---
 ```
+
+### Hidden background knowledge
+
+```yaml
+---
+name: legacy-system-context
+description: Explains the legacy billing system when relevant.
+user-invocable: false
+---
+```
+
+### Forked task executor
+
+```yaml
+---
+name: deep-research
+description: Research a topic thoroughly and summarize findings.
+context: fork
+agent: Explore
+---
+```
+
+---
+
+## Argument and Context Substitutions
+
+Skills support runtime substitutions in the markdown body:
+
+- `$ARGUMENTS`
+- `$ARGUMENTS[N]`
+- `$N`
+- `${CLAUDE_SESSION_ID}`
+- `${CLAUDE_SKILL_DIR}`
+
+Example:
+
+```yaml
+---
+name: fix-issue
+description: Fix a GitHub issue
+disable-model-invocation: true
+---
+
+Fix issue $ARGUMENTS following the project coding standards.
+```
+
+Use `${CLAUDE_SKILL_DIR}` whenever a bundled script or reference file must be resolved reliably from the current shell context.
+
+---
+
+## Dynamic Context Injection
+
+The `!`command`` syntax runs before the skill content is sent to Claude.
+
+Example:
+
+```yaml
+---
+name: pr-summary
+description: Summarize changes in a pull request
+context: fork
+agent: Explore
+allowed-tools: Bash(gh *)
+---
+
+## Pull request context
+- PR diff: !`gh pr diff`
+- PR comments: !`gh pr view --comments`
+```
+
+Use this when live external context is required, not for ordinary static instructions.
+
+---
+
+## Practical Authoring Guidance
+
+These are recommendations, not hard schema rules:
+
+- Keep `SKILL.md` concise and move deep material into references
+- Prefer distinctive descriptions over generic ones
+- Use examples when the output shape matters
+- Use scripts when the same deterministic work would otherwise be reinvented each run
+- Treat `context: fork` as a task-execution tool, not as a default
+
+---
+
+## Legacy Compatibility
+
+This repo's validator still accepts `license` and `metadata` for compatibility with existing/open-standard skill layouts already present in the ecosystem.
+
+Do not introduce new project-specific frontmatter fields. If you need extra structure, put it in:
+
+- the markdown body
+- `references/`
+- `metadata`

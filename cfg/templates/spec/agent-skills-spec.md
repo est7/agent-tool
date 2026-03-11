@@ -97,16 +97,30 @@ Show concrete examples of using this Skill.
 
 ### Available Metadata Fields
 
-| Field            | Required | Description                                                                                                                                                                                                                                                                                       |
-|:-----------------|:---------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `name`           | Yes      | Skill name. Must use lowercase letters, numbers, and hyphens only (max 64 characters). Should match the directory name.                                                                                                                                                                           |
-| `description`    | Yes      | What the Skill does and when to use it (max 1024 characters). Claude uses this to decide when to apply the Skill.                                                                                                                                                                                 |
-| `allowed-tools`  | No       | Tools Claude can use without asking permission when this Skill is active. Supports comma-separated values or YAML-style lists. See [Restrict Tool Access](#restrict-tool-access-with-allowed-tools).                                                                                              |
-| `model`          | No       | Model to use when this Skill is active (e.g., `claude-sonnet-4-20250514`). Defaults to the conversation's model.                                                                                                                                                                                  |
-| `context`        | No       | Set to `fork` to run the Skill in a forked sub-agent context with its own conversation history.                                                                                                                                                                                                   |
-| `agent`          | No       | Specify which agent type to use when `context: fork` is set (e.g., `Explore`, `Plan`, `general-purpose`, or a custom agent name from `.claude/agents/`). Defaults to `general-purpose` if not specified. Only applicable when combined with `context: fork`.                                      |
-| `hooks`          | No       | Define hooks scoped to this Skill's lifecycle. Supports `PreToolUse`, `PostToolUse`, and `Stop` events.                                                                                                                                                                                           |
-| `user-invocable` | No       | Set to `false` to hide the Skill from the slash command menu. Skills are visible in the menu by default.                                                                                                                                                                                          |
+All fields are optional. Only `description` is recommended so Claude knows when to use the Skill.
+
+| Field                      | Required    | Description                                                                                                                                           |
+|:---------------------------|:------------|:------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `name`                     | No          | Display name for the Skill. If omitted, uses the directory name. Lowercase letters, numbers, and hyphens only (max 64 characters).                    |
+| `description`              | Recommended | What the Skill does and when to use it (max 1024 characters). Claude uses this to decide when to apply the Skill. If omitted, uses the first paragraph of markdown content. |
+| `argument-hint`            | No          | Hint shown during autocomplete to indicate expected arguments. Example: `[issue-number]` or `[filename] [format]`.                                    |
+| `disable-model-invocation` | No          | Set to `true` to prevent Claude from automatically loading this Skill. Use for workflows you want to trigger manually with `/name`. Default: `false`. |
+| `user-invocable`           | No          | Set to `false` to hide from the `/` menu. Use for background knowledge users shouldn't invoke directly. Default: `true`.                              |
+| `allowed-tools`            | No          | Tools Claude can use without asking permission when this Skill is active. Supports comma-separated values or YAML-style lists. See [Restrict Tool Access](#restrict-tool-access-with-allowed-tools). |
+| `model`                    | No          | Model to use when this Skill is active (e.g., `claude-sonnet-4-20250514`). Defaults to the conversation's model.                                     |
+| `context`                  | No          | Set to `fork` to run the Skill in a forked sub-agent context with its own conversation history.                                                       |
+| `agent`                    | No          | Specify which agent type to use when `context: fork` is set (e.g., `Explore`, `Plan`, `general-purpose`, or a custom agent name from `.claude/agents/`). Defaults to `general-purpose` if not specified. Only applicable when combined with `context: fork`. |
+| `hooks`                    | No          | Define hooks scoped to this Skill's lifecycle. Supports `PreToolUse`, `PostToolUse`, and `Stop` events.                                               |
+
+### Invocation Control
+
+`disable-model-invocation` and `user-invocable` are distinct controls:
+
+| Frontmatter                      | You can invoke | Claude can invoke | When loaded into context                                     |
+|:---------------------------------|:---------------|:------------------|:-------------------------------------------------------------|
+| (default)                        | Yes            | Yes               | Description always in context, full skill loads when invoked |
+| `disable-model-invocation: true` | Yes            | No                | Description not in context, full skill loads when you invoke |
+| `user-invocable: false`          | No             | Yes               | Description always in context, full skill loads when invoked |
 
 ### Name Field Validation
 
@@ -117,7 +131,7 @@ Show concrete examples of using this Skill.
 
 ### Description Field Validation
 
-- Must be non-empty
+- Recommended but optional (if omitted, first paragraph of markdown body is used)
 - Maximum 1024 characters
 - Cannot contain XML tags
 - Should describe what the Skill does and when to use it
@@ -318,6 +332,54 @@ hooks:
           once: true  # Optional: only run once per session
 ---
 ```
+
+---
+
+## String Substitutions
+
+Skills support runtime substitutions in the markdown body:
+
+| Variable               | Description                                                                                                   |
+|:-----------------------|:--------------------------------------------------------------------------------------------------------------|
+| `$ARGUMENTS`           | All arguments passed when invoking the skill. If not present in content, arguments are appended automatically. |
+| `$ARGUMENTS[N]`        | Access a specific argument by 0-based index, e.g., `$ARGUMENTS[0]` for the first argument.                   |
+| `$N`                   | Shorthand for `$ARGUMENTS[N]`, e.g., `$0` for the first argument.                                            |
+| `${CLAUDE_SESSION_ID}` | The current session ID. Useful for logging or creating session-specific files.                                 |
+| `${CLAUDE_SKILL_DIR}`  | The directory containing the skill's `SKILL.md` file. Use to reference bundled scripts/files reliably.        |
+
+**Example:**
+
+```yaml
+---
+name: fix-issue
+description: Fix a GitHub issue
+disable-model-invocation: true
+---
+
+Fix issue $ARGUMENTS following the project coding standards.
+```
+
+---
+
+## Dynamic Context Injection
+
+The `!`command`` syntax runs shell commands before the skill content is sent to Claude. The command output replaces the placeholder.
+
+```yaml
+---
+name: pr-summary
+description: Summarize changes in a pull request
+context: fork
+agent: Explore
+allowed-tools: Bash(gh *)
+---
+
+## Pull request context
+- PR diff: !`gh pr diff`
+- PR comments: !`gh pr view --comments`
+```
+
+Use this when live external context is required, not for ordinary static instructions.
 
 ---
 

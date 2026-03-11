@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 setup() {
-  export SKILL_ROOT="${BATS_TEST_DIRNAME}/../cfg/templates/skills/anthropics-skill-creator"
+  export SKILL_ROOT="${BATS_TEST_DIRNAME}/../cfg/templates/skills/create-skill"
   export VALIDATOR="${SKILL_ROOT}/scripts/quick_validate.py"
   export PACKAGER="${SKILL_ROOT}/scripts/package_skill.py"
   export INIT_SKILL="${SKILL_ROOT}/scripts/init_skill.py"

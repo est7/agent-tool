@@ -24,15 +24,16 @@ Before sharing a Skill, verify these items.
 
 ## Frontmatter Validation
 
-- [ ] **name** - max 64 chars, lowercase/numbers/hyphens only
-- [ ] **name** - no XML tags, no reserved words (anthropic, claude)
-- [ ] **description** - non-empty, max 1024 chars
-- [ ] **description** - no XML tags, written in third person
+- [ ] **name** (if present) - max 64 chars, lowercase/numbers/hyphens only
+- [ ] **description** (recommended) - max 1024 chars and clearly states when the skill should trigger
+- [ ] **argument-hint** (if used) - matches the direct invocation shape
+- [ ] **disable-model-invocation** / **user-invocable** (if used) - chosen intentionally and not confused with each other
 - [ ] **allowed-tools** (if used) - valid tool names
 - [ ] **model** (if used) - valid model ID
 - [ ] **context** (if used) - only valid value is `fork`
 - [ ] **agent** (if used) - valid agent type, only with `context: fork`
 - [ ] **hooks** (if used) - valid hook structure
+- [ ] **No unsupported custom fields** such as `compatibility`
 
 ---
 
@@ -61,7 +62,7 @@ Before sharing a Skill, verify these items.
 ## File Structure
 
 - [ ] **SKILL.md exists** in skill root directory
-- [ ] **Directory name matches** skill name in frontmatter
+- [ ] **Directory name is intentional** if `name` is omitted or differs
 - [ ] **No extraneous files** (README.md, CHANGELOG.md, etc.)
 - [ ] **References organized** by domain or function
 - [ ] **Scripts are executable** (`chmod +x`)
