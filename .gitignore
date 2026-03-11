@@ -4,3 +4,4 @@
 .1mcprc
 .mcp.json
 .DS_Store
+__pycache__/
