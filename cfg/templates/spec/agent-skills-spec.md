@@ -346,6 +346,8 @@ Skills support runtime substitutions in the markdown body:
 | `$N`                   | Shorthand for `$ARGUMENTS[N]`, e.g., `$0` for the first argument.                                            |
 | `${CLAUDE_SESSION_ID}` | The current session ID. Useful for logging or creating session-specific files.                                 |
 | `${CLAUDE_SKILL_DIR}`  | The directory containing the skill's `SKILL.md` file. Use to reference bundled scripts/files reliably.        |
+| `${CLAUDE_PLUGIN_ROOT}` | Absolute path to the plugin's installation directory. Use to reference scripts, binaries, and config files bundled with the plugin. Changes on plugin update — do not write persistent data here. |
+| `${CLAUDE_PLUGIN_DATA}` | Persistent directory for plugin state that survives plugin updates (e.g., `node_modules`, virtualenvs, caches, generated files). Created automatically on first reference. |
 
 **Example:**
 

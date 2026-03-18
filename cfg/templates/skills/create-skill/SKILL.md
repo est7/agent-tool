@@ -76,11 +76,14 @@ Based on the user interview, fill in these components:
 - If omitted, Claude Code uses the directory name
 
 **Description rules:**
+
+The `description` field is for Claude, not for humans. When a session starts, Claude Code builds a list of all available Skills with their descriptions. Claude scans this list to decide "can this Skill help accomplish the current request?" So the description should list what the Skill can do and what scenarios it covers — written so that an agent can quickly match it against whatever the user is asking for.
+
 - Recommended even though not strictly required
 - Maximum 1024 characters
 - Prefer third person ("Processes files", not "I help you")
-- Include both what the skill does AND specific trigger contexts
-- Make descriptions slightly "pushy" — Claude tends to under-trigger, so err on the side of broader trigger coverage
+- List capabilities and applicable scenarios broadly enough that Claude can match them to user intent
+- Make descriptions slightly "pushy" — Claude tends to under-trigger, so err on the side of broader coverage
 
 For complete documentation of all frontmatter fields (`argument-hint`, `disable-model-invocation`, `user-invocable`, `allowed-tools`, `model`, `context`, `agent`, `hooks`) plus substitutions and dynamic context injection, see [references/frontmatter-fields.md](references/frontmatter-fields.md).
 
@@ -180,6 +183,19 @@ This creates the skill directory, SKILL.md template with TODO placeholders, and 
 Do NOT create extraneous files like README.md, INSTALLATION_GUIDE.md, or CHANGELOG.md. The skill should only contain information needed for an AI agent to do the job.
 
 Use official frontmatter only. If you need extra structure, put it in the markdown body, `references/`, or `metadata` rather than inventing custom fields.
+
+#### Memory & Data Storage
+
+Some Skills benefit from persisting data between runs to achieve a form of memory. This can be as simple as an append-only text log or JSON file, or as sophisticated as a SQLite database.
+
+For example, a `standup-post` Skill could maintain a `standups.log` recording every standup it has written. On the next run, Claude reads its own history and knows what changed since the last entry.
+
+**Where to store data**: Files stored in the Skill directory (`${CLAUDE_SKILL_DIR}`) may be deleted when the Skill or plugin is upgraded. For any state that must survive upgrades, use `${CLAUDE_PLUGIN_DATA}` — a persistent per-plugin data directory created automatically on first reference. Typical contents: logs, caches, generated files, installed dependencies (`node_modules`, virtualenvs).
+
+```markdown
+## After posting, append a summary to the standup log:
+`echo "$(date -Iseconds) | $SUMMARY" >> ${CLAUDE_PLUGIN_DATA}/standups.log`
+```
 
 ### Test Cases
 

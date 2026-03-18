@@ -108,6 +108,10 @@ For `Stop`, `SubagentStop`, `UserPromptSubmit`, `PreToolUse`, `PermissionRequest
 | `$CLAUDE_PROJECT_DIR` | Absolute path to project root |
 | `$CLAUDE_CODE_REMOTE` | `"true"` for web, empty for CLI |
 | `$CLAUDE_ENV_FILE` | (SessionStart) File to persist env vars |
+| `$CLAUDE_PLUGIN_ROOT` | Absolute path to the plugin's installation directory. Use to reference scripts, binaries, and config files bundled with the plugin. Changes on plugin update — do not persist data here. |
+| `$CLAUDE_PLUGIN_DATA` | Persistent directory for plugin state that survives updates (e.g., `node_modules`, virtualenvs, caches, generated files). Created automatically on first reference. |
+
+> **Plugin path placeholders**: `${CLAUDE_PLUGIN_ROOT}` and `${CLAUDE_PLUGIN_DATA}` are substituted inline in hook commands and also exported as environment variables to hook processes.
 
 ## Hook Input (stdin JSON)
 

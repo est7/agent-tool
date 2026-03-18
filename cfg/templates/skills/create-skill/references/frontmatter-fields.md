@@ -65,7 +65,7 @@ Recommendation:
 
 ### `description`
 
-`description` is recommended because it drives automatic triggering.
+`description` is recommended because it drives automatic triggering. This field is for Claude, not for humans — Claude scans it to decide whether this Skill can help accomplish the current request. List what the Skill can do and what scenarios it covers, so Claude can quickly match user intent to Skill capabilities.
 
 ```yaml
 description: Extracts text and tables from PDF files. Use when the user is working with PDFs, forms, or document extraction.
@@ -73,9 +73,10 @@ description: Extracts text and tables from PDF files. Use when the user is worki
 
 Recommendation:
 
-- include both what the skill does and when it should trigger
+- list capabilities and applicable scenarios broadly
 - write from the skill's point of view, not in first person
 - bias slightly toward under-explained user intent rather than implementation details
+- make descriptions slightly "pushy" — Claude tends to under-trigger
 - keep within 1024 characters
 
 ### `argument-hint`
@@ -224,6 +225,8 @@ Skills support runtime substitutions in the markdown body:
 - `$N`
 - `${CLAUDE_SESSION_ID}`
 - `${CLAUDE_SKILL_DIR}`
+- `${CLAUDE_PLUGIN_ROOT}` — absolute path to the plugin's installation directory; use to reference scripts, binaries, and config files bundled with the plugin. **Changes on plugin update** — do not write persistent data here.
+- `${CLAUDE_PLUGIN_DATA}` — persistent directory for plugin state that survives updates (e.g., `node_modules`, virtualenvs, caches, generated files). Created automatically on first reference.
 
 Example:
 
@@ -238,6 +241,8 @@ Fix issue $ARGUMENTS following the project coding standards.
 ```
 
 Use `${CLAUDE_SKILL_DIR}` whenever a bundled script or reference file must be resolved reliably from the current shell context.
+
+Use `${CLAUDE_PLUGIN_ROOT}` for the same purpose when the skill is distributed as part of a plugin. Use `${CLAUDE_PLUGIN_DATA}` for any state that must persist across plugin version upgrades.
 
 ---
 

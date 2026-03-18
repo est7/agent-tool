@@ -263,6 +263,10 @@ claude mcp add-from-claude-desktop
 |----------|-------------|
 | `MCP_TIMEOUT` | Server startup timeout (ms) |
 | `MAX_MCP_OUTPUT_TOKENS` | Max output tokens (default: 25000) |
+| `CLAUDE_PLUGIN_ROOT` | Absolute path to the plugin's installation directory. Use to reference scripts, binaries, and config files bundled with the plugin. Changes on plugin update — do not persist data here. |
+| `CLAUDE_PLUGIN_DATA` | Persistent directory for plugin state that survives updates (e.g., `node_modules`, virtualenvs, caches). Created automatically on first reference. |
+
+> **Plugin path placeholders**: `${CLAUDE_PLUGIN_ROOT}` and `${CLAUDE_PLUGIN_DATA}` are substituted inline in MCP server config fields and also exported as environment variables to MCP server subprocesses.
 
 ```bash
 MCP_TIMEOUT=10000 claude

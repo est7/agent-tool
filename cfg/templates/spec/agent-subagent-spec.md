@@ -76,6 +76,15 @@ Plugins can provide custom subagents that integrate seamlessly with Claude Code.
 * Can be invoked automatically by Claude when appropriate
 * Can be managed (viewed, inspected) through `/agents` interface
 
+**Plugin path placeholders** (available in agent content and hook commands):
+
+| Placeholder | Description |
+|:------------|:------------|
+| `${CLAUDE_PLUGIN_ROOT}` | Absolute path to the plugin's installation directory. Use to reference scripts, binaries, and config files bundled with the plugin. Changes on plugin update — do not persist data here. |
+| `${CLAUDE_PLUGIN_DATA}` | Persistent directory for plugin state that survives updates (e.g., `node_modules`, virtualenvs, caches). Created automatically on first reference. |
+
+Both are substituted inline in agent content and exported as environment variables to hook processes and MCP server subprocesses.
+
 ### CLI-based configuration
 
 You can also define subagents dynamically using the `--agents` CLI flag, which accepts a JSON object:
