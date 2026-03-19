@@ -99,6 +99,10 @@ disable-model-invocation: true
 
 Use for side-effectful workflows like deploy, release, or commit helpers.
 
+Claude will not see this skill's description in context, so it cannot auto-trigger it.
+Only manual invocation via `/skill-name` will activate the skill.
+Use for side-effectful operations (deploy, send messages, write to database) where you do not want Claude to decide on its own that "the time is right" to execute.
+
 ### `user-invocable`
 
 Controls whether the skill appears in the `/` menu.
@@ -108,6 +112,10 @@ user-invocable: false
 ```
 
 Use for background knowledge or helper skills that users should not run directly.
+
+Claude can still see the description and will automatically load and use the skill in relevant conversations.
+Typing `/skill-name` manually has no effect (or is ignored).
+Use for background knowledge skills (e.g., "legacy system context") — reference material for Claude to read, not an action you would trigger directly.
 
 ### `allowed-tools`
 
@@ -131,7 +139,7 @@ Use when the skill needs a predictable tool boundary.
 Overrides the current model for this skill.
 
 ```yaml
-model: claude-sonnet-4-20250514
+model: claude-sonnet-4-6
 ```
 
 Use sparingly. Most skills should inherit the session model.
