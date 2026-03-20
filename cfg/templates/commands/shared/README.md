@@ -13,19 +13,16 @@ English summary: this directory contains slash command templates intended to be 
 | 命令 | 用途 |
 |------|------|
 | `/deep-plan` | 深度分析规划，含 review gate |
-| `/catchup` | 收集多模块仓库未提交更改 |
-| `/simple-catchup` | 快速查看当前分支变更 |
-| `/smart-review` | 智能推荐代码审查角色 |
-| `/android-code-review` | Android/Kotlin 代码专业审查 |
-| `/design-patterns` | 设计模式和 SOLID 原则分析 |
-| `/enhance-prompt` | 交互式优化模糊指令 |
-| `/enhance-spec` | 采访式需求规格细化 |
+| `/catchup-from-branch` | 收集当前分支相对 base branch 的已提交变更，读取文件全文 |
+| `/catchup-from-unstaged` | 收集未提交更改（含 submodule）作为结构化上下文 |
+| `/review-role-advisor` | 根据代码文件类型自动推荐审查角色（frontend/security/architect 等） |
+| `/review-solid-patterns` | 评估设计模式使用、SOLID 原则评分、反模式检测及重构建议 |
+| `/clarify-intent` | 交互式澄清模糊指令，确认意图后再执行 |
+| `/clarify-spec` | 采访式补全需求规格文档 |
 | `/docs-sync` | 把当前上下文落盘到合适的 `docs/` 分类并刷新索引 |
 | `/postmortem-check` | 发布前后基于 `docs/postmortem/` 做检查与落盘 |
-| `/remove-ai-junk-code` | 清理 AI 生成的代码垃圾 |
-| `/lanhu` | 蓝湖设计稿提取（截图版） |
-| `/lanhu01` | 蓝湖设计稿提取（跨平台规格） |
-| `/lanhu02` | 蓝湖设计稿提取（优化版） |
+| `/cleanup-ai-slop` | 清理 AI 生成的冗余代码（多余注释、防御性检查等） |
+| `/handoff` | 生成跨会话交接摘要给下一位 AI Agent |
 
 ---
 
@@ -82,89 +79,76 @@ English summary: this directory contains slash command templates intended to be 
 
 ---
 
-### /catchup
+### /catchup-from-branch
 
 **使用方式**:
 ```
-/catchup                           # 收集所有未提交更改
-/catchup 这些变更的主要目的是什么？  # 带问题
+/catchup-from-branch                           # 收集分支已提交变更
+/catchup-from-branch 这些变更的主要目的是什么？  # 带问题
+/catchup-from-branch 重点看 auth 模块的改动      # 聚焦特定区域
 ```
 
 **适用场景**:
-- 多模块/monorepo 项目
-- 需要了解当前工作状态
-- 准备 commit 前回顾变更
+- 新会话开头了解当前分支做了什么
+- Code review 前回顾分支全部提交
+- 自动检测 base branch（main/master/develop）
 
 ---
 
-### /simple-catchup
+### /catchup-from-unstaged
 
 **使用方式**:
 ```
-/simple-catchup
+/catchup-from-unstaged                           # 收集所有未提交更改
+/catchup-from-unstaged 这些变更的主要目的是什么？  # 带问题
 ```
 
 **适用场景**:
-- 快速了解当前分支相对 develop 的变更
-- 单仓库项目
+- 准备 commit 前回顾工作区状态
+- 多模块/monorepo 项目收集 submodule 状态
+- 了解当前正在进行的修改
 
 ---
 
-### /smart-review
+### /review-role-advisor
 
 **使用方式**:
 ```
-/smart-review                    # 分析当前目录
-/smart-review src/auth/          # 分析指定目录
-/smart-review api/handler.go     # 分析指定文件
+/review-role-advisor                    # 分析当前目录
+/review-role-advisor src/auth/          # 分析指定目录
+/review-role-advisor api/handler.go     # 分析指定文件
 ```
 
 **适用场景**:
-- 不确定用哪个审查角色
-- 代码涉及多个领域
-- 需要智能推荐审查策略
+- 不确定该用哪个审查角色
+- 代码涉及多个技术领域
+- 需要智能推荐审查策略（单角色 / 多角色 / 辩论模式）
 
 ---
 
-### /android-code-review
+### /review-solid-patterns
 
 **使用方式**:
 ```
-/android-code-review                          # 审查当前目录
-/android-code-review app/src/main/            # 审查指定目录
-/android-code-review 关注协程使用              # 带关注点
-```
-
-**适用场景**:
-- Android/Kotlin 项目代码审查
-- 检查状态管理、协程、架构分层
-- 识别 Android 反模式
-
----
-
-### /design-patterns
-
-**使用方式**:
-```
-/design-patterns                     # 分析当前目录
-/design-patterns src/services/       # 分析指定目录
-/design-patterns src/payment.ts      # 分析指定文件
+/review-solid-patterns                     # 分析当前目录
+/review-solid-patterns src/services/       # 分析指定目录
+/review-solid-patterns src/payment.ts      # 分析指定文件
 ```
 
 **适用场景**:
 - 评估代码架构质量
 - 识别设计模式使用情况
-- 检查 SOLID 原则遵循度
+- 检查 SOLID 原则遵循度（含评分）
 - 发现反模式并获取重构建议
 
 ---
 
-### /enhance-prompt
+### /clarify-intent
 
 **使用方式**:
 ```
-/enhance-prompt 帮我实现一个滑动列表
-/enhance-prompt 添加用户登录功能
+/clarify-intent 帮我实现一个滑动列表
+/clarify-intent 添加用户登录功能
 ```
 
 **适用场景**:
@@ -174,12 +158,12 @@ English summary: this directory contains slash command templates intended to be 
 
 ---
 
-### /enhance-spec
+### /clarify-spec
 
 **使用方式**:
 ```
-/enhance-spec docs/feature-spec.md
-/enhance-spec requirements.md
+/clarify-spec docs/feature-spec.md
+/clarify-spec requirements.md
 ```
 
 **适用场景**:
@@ -189,12 +173,12 @@ English summary: this directory contains slash command templates intended to be 
 
 ---
 
-### /remove-ai-junk-code
+### /cleanup-ai-slop
 
 **使用方式**:
 ```
-/remove-ai-junk-code
-/remove-ai-junk-code src/utils/
+/cleanup-ai-slop
+/cleanup-ai-slop src/utils/
 ```
 
 **适用场景**:
@@ -204,24 +188,19 @@ English summary: this directory contains slash command templates intended to be 
 
 ---
 
-### /lanhu, /lanhu01, /lanhu02
+### /handoff
 
 **使用方式**:
 ```
-/lanhu https://lanhu.com/xxx?ddsUrl=xxx
-/lanhu01 https://lanhu.com/xxx?ddsUrl=xxx
-/lanhu02 https://lanhu.com/xxx?ddsUrl=xxx
+/handoff
+/handoff 重点交接数据库迁移部分的进展
+/handoff 强调已排除的方案和原因
 ```
 
-**区别**:
-- `/lanhu`: 截图设计图 + 保存 JSX/CSS 代码
-- `/lanhu01`: 生成跨平台 spec.md（JSX → HTML 转换）
-- `/lanhu02`: 优化版，使用脚本自动解析
-
 **适用场景**:
-- 从蓝湖提取设计稿代码
-- 生成 Android/iOS 开发规格
-- 设计稿截图存档
+- 当前上下文过长，需要开新会话继续工作
+- 跨会话传递工作进展、决策和剩余任务
+- 让下一位 AI Agent 快速接手而不丢失关键信息
 
 ---
 

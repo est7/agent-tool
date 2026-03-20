@@ -1,17 +1,5 @@
 {
   "mcpServers": {
-    "sequential-thinking": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-sequential-thinking"
-      ],
-      "disabled": false,
-      "tags": [
-        "core",
-        "all"
-      ]
-    },
     "context7": {
       "command": "npx",
       "args": [
@@ -25,6 +13,18 @@
         "core",
         "all",
         "search"
+      ]
+    },
+    "google-developer-knowledge": {
+      "type": "http",
+      "url": "https://developerknowledge.googleapis.com/mcp",
+      "headers": {
+        "X-Goog-Api-Key": "${GOOGLE_DEVELOPER_KNOWLEDGE_API_KEY}"
+      },
+      "disabled": false,
+      "tags": [
+        "search",
+        "all"
       ]
     },
     "auggie-mcp": {
@@ -41,62 +41,20 @@
         "all"
       ]
     },
-    "claudecode-mcp-async": {
-      "command": "uvx",
-      "args": [
-        "claudecode-mcp-async"
-      ],
-      "disabled": false,
-      "tags": [
-        "agent-cli",
-        "all"
-      ]
-    },
-    "codex-mcp-async": {
-      "command": "uvx",
-      "args": [
-        "codex-mcp-async"
-      ],
-      "disabled": false,
-      "tags": [
-        "agent-cli",
-        "all"
-      ]
-    },
-    "gemini-cli-mcp-async": {
-      "command": "uvx",
-      "args": [
-        "gemini-cli-mcp-async"
-      ],
-      "disabled": false,
-      "tags": [
-        "agent-cli",
-        "all"
-      ]
-    },
     "github": {
       "command": "docker",
       "args": [
-        "run", "-i", "--rm",
-        "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "run",
+        "-i",
+        "--rm",
+        "-e",
+        "GITHUB_PERSONAL_ACCESS_TOKEN",
         "ghcr.io/github/github-mcp-server"
       ],
       "env": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_PAT}"
       },
       "disabled": true,
-      "tags": [
-        "search",
-        "all"
-      ]
-    },
-    "google-developer-knowledge": {
-      "type": "http",
-      "url": "https://developerknowledge.googleapis.com/mcp",
-      "headers": {
-        "X-Goog-Api-Key": "${GOOGLE_DEVELOPER_KNOWLEDGE_API_KEY}"
-      },
-      "disabled": false,
       "tags": [
         "search",
         "all"
@@ -110,6 +68,15 @@
         "ide",
         "all"
       ]
+    },
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "disabled": true,
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ],
+      "env": {}
     }
   }
 }
