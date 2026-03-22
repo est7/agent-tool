@@ -10,7 +10,6 @@
       ],
       "disabled": false,
       "tags": [
-        "core",
         "all",
         "search"
       ]
@@ -36,7 +35,6 @@
       ],
       "disabled": false,
       "tags": [
-        "core",
         "search",
         "all"
       ]
@@ -56,7 +54,7 @@
       },
       "disabled": true,
       "tags": [
-        "search",
+        "git",
         "all"
       ]
     },
@@ -73,6 +71,10 @@
       "type": "stdio",
       "command": "npx",
       "disabled": true,
+      "tags": [
+        "web-tool",
+        "all"
+      ],
       "args": [
         "chrome-devtools-mcp@latest"
       ],
